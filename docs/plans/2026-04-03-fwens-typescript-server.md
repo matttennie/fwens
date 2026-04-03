@@ -1,6 +1,6 @@
 # fwens TypeScript Server — Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For any CLI agent executing this plan:** Work through tasks sequentially (1-12). Each task follows TDD: write failing test, implement, verify, commit. Steps use checkbox (`- [ ]`) syntax for tracking. No CLI-specific features are required — any MCP-compatible coding agent can execute this plan.
 
 **Goal:** Build the fwens MCP server (TypeScript) and CLI companion that enables five coding CLIs to coordinate through shared task, review, and messaging tools.
 
