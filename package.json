@@ -1,0 +1,11 @@
+{
+  "name": "fwens",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": ["packages/*"],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces",
+    "clean": "rm -rf packages/*/dist"
+  }
+}
