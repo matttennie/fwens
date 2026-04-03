@@ -88,11 +88,6 @@ function writeMcpConfigs(mcpDir: string, projectDir: string): void {
     path.join(mcpDir, "opencode.json"),
     makeJsonConfig("opencode") + "\n"
   );
-  fs.writeFileSync(
-    path.join(mcpDir, "aider.json"),
-    makeJsonConfig("aider") + "\n"
-  );
-
   // Codex CLI uses TOML format
   const codexToml = `[mcp_servers.fwens]
 command = "node"

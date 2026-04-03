@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-fwens is a local MCP server that enables five CLI coding agents to collaborate on shared projects through task delegation and mutual adversarial review. It provides a shared coordination layer (task board, review queue, message bus) without ever spawning, wrapping, or piping output between agents.
+fwens is a local MCP server that enables four CLI coding agents to collaborate on shared projects through task delegation and mutual adversarial review. It provides a shared coordination layer (task board, review queue, message bus) without ever spawning, wrapping, or piping output between agents.
 
 ### Supported CLIs
 
@@ -18,7 +18,6 @@ fwens is a local MCP server that enables five CLI coding agents to collaborate o
 | Gemini CLI | Google | `~/.gemini/settings.json` or `.gemini/settings.json` |
 | Codex CLI | OpenAI | `~/.codex/config.toml` or `.codex/config.toml` |
 | OpenCode | Various | `opencode.json` |
-| Aider | Various | `.aider.conf.yml` or CLI flags |
 
 ### What fwens is NOT
 
@@ -32,11 +31,11 @@ fwens is a local MCP server that enables five CLI coding agents to collaborate o
 ## 2. Architecture
 
 ```
-┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-│ Claude Code  │ │ Gemini CLI   │ │  Codex CLI   │ │  OpenCode    │ │   Aider      │
-└──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
-       │ stdio          │ stdio          │ stdio          │ stdio          │ stdio
-       └────────────────┴────────────────┼────────────────┴────────────────┘
+┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+│ Claude Code  │ │ Gemini CLI   │ │  Codex CLI   │ │  OpenCode    │
+└──────┬───────┘ └──────┬───────┘ └──────┬───────┘ └──────┬───────┘
+       │ stdio          │ stdio          │ stdio          │ stdio
+       └────────────────┴────────────────┴────────────────┘
                                          │
                                 ┌────────▼────────┐
                                 │  fwens MCP       │

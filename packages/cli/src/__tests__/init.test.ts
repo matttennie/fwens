@@ -59,7 +59,6 @@ describe("runInit", () => {
     expect(fs.existsSync(path.join(mcpDir, "gemini.json"))).toBe(true);
     expect(fs.existsSync(path.join(mcpDir, "codex.toml"))).toBe(true);
     expect(fs.existsSync(path.join(mcpDir, "opencode.json"))).toBe(true);
-    expect(fs.existsSync(path.join(mcpDir, "aider.json"))).toBe(true);
 
     // Verify claude.json content
     const claudeConfig = JSON.parse(
