@@ -179,7 +179,7 @@ Session registration happens automatically on connect — no explicit tool call 
 |------|--------|---------|
 | `request_review` | `task_id`, `rubric?` | `{ review_id }` |
 | `list_reviews` | `filter?` (pending, task_id, mine) | `review[]` |
-| `submit_review` | `task_id`, `verdict`, `findings` | review |
+| `submit_review` | `review_id`, `verdict`, `findings` | review |
 | `respond_to_review` | `review_id`, `response` | updated review |
 
 ### Communication
