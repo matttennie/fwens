@@ -7,6 +7,7 @@ import { runTasks } from "./commands/tasks.js";
 import { runReviews } from "./commands/reviews.js";
 import { runMessages } from "./commands/messages.js";
 import { runSessions } from "./commands/sessions.js";
+import { runSeed } from "./commands/seed.js";
 
 const program = new Command();
 
@@ -64,6 +65,15 @@ program
   .argument("[dir]", "project directory", process.cwd())
   .action((dir: string) => {
     runSessions(path.resolve(dir));
+  });
+
+program
+  .command("seed")
+  .description("Seed tasks from a markdown file into the fwens database")
+  .argument("<taskfile>", "markdown file with task definitions")
+  .argument("[dir]", "project directory", process.cwd())
+  .action((taskfile: string, dir: string) => {
+    runSeed(path.resolve(dir), taskfile);
   });
 
 program.parse();
