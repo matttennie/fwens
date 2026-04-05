@@ -1,6 +1,7 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
@@ -52,11 +53,10 @@ CREATE INDEX IF NOT EXISTS idx_reviews_task ON reviews(task_id);
 CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel, created_at);
 `;
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 function writeMcpConfigs(mcpDir: string, projectDir: string): void {
-  const serverPath = path.join(
-    process.env.HOME ?? "~",
-    "Desktop/AI/fwens/packages/server/dist/index.js"
-  );
+  const serverPath = path.resolve(__dirname, "../../../server/dist/index.js");
 
   const makeJsonConfig = (agentType: string) =>
     JSON.stringify(

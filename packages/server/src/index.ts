@@ -292,7 +292,7 @@ server.registerTool("read_messages", {
   inputSchema: z.object({
     channel: z.string().optional(),
     since: z.string().optional(),
-    limit: z.number().optional(),
+    limit: z.number().max(1000).optional(),
   }),
 }, async (args) => {
   heartbeat();
