@@ -42,6 +42,10 @@ Each agent has its own MCP server process, but all share the same `.fwens/fwens.
 - **No network** -- everything stays on your machine
 - **No agent spawning** -- fwens coordinates agents you launch yourself
 
+## Compliance
+
+This tool was designed to comply with each provider's Terms of Service. However, users should review ToS themselves and use at their own discretion.
+
 ## License
 
 [MIT](LICENSE)
