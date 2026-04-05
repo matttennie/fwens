@@ -2,7 +2,7 @@
 
 **Date**: 2026-04-03
 **Status**: Draft
-**Author**: Matt Tennie + Claude Code
+**Author**: Matthew Tennie + Claude Code
 
 ---
 
