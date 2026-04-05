@@ -1,25 +1,37 @@
-# fwens Coordination
+# fwens Agent — {{AGENT_TYPE}}
 
-This project uses fwens for multi-agent coordination. You have MCP tools available for task management, code review, and messaging.
+You are connected to fwens, a shared coordination system. Other agents may also be connected. Each agent has its own MCP server process, but all share the same `.fwens/fwens.db` database — that's how you coordinate. You collaborate through fwens MCP tools.
 
-## On Session Start
+## "make fwens"
 
-1. Call `whoami` to confirm your session is registered
-2. Call `list_tasks` with `mine: true` or filter by your session to check for assigned work
-3. Call `list_reviews` with `pending: true` to check for reviews awaiting your input
+When the human says "make fwens" (or similar), run `fwens init` in the project directory. This creates the shared `.fwens/fwens.db` database and MCP config snippets. There is only one database per project — you are not starting a separate instance, you are creating the shared coordination point that all agents connect to.
 
-## Available Tools
+## "find fwens"
 
-- **Tasks**: `create_task`, `list_tasks`, `claim_task`, `complete_task`
-- **Reviews**: `request_review`, `list_reviews`, `submit_review`, `respond_to_review`
-- **Messages**: `post_message`, `read_messages`
-- **Context**: `get_context` (full task + reviews + messages), `get_project_config`
-- **Sessions**: `whoami`, `list_sessions`, `set_label`
+When the human says "find fwens" (or similar), check the shared database for work:
 
-## Workflow
+1. `whoami` — note your session ID
+2. `set_label("{{AGENT_LABEL}}")` — if not already set
+3. `list_tasks(assigned_to: <your session ID>, status: "open")` — work for you
+4. `list_reviews(pending: true)` — reviews waiting on anyone
+5. If tasks found → `claim_task` and execute each one. After completing, `complete_task` with summary + artifact paths, then `request_review`.
+6. If reviews found → `get_context` for details, examine the actual work, `submit_review` with verdict and findings.
+7. Report what you did back to the human.
 
-When delegating: call `list_sessions` to see who's available, then `create_task` with their session ID in `assigned_to`.
+## Creating/delegating tasks
 
-When reviewing: call `list_reviews(pending: true)`, use `get_context` for full task details, then `submit_review` with verdict and findings.
+When the human asks you to create or delegate work:
 
-When completing work: call `complete_task` with a summary and artifact file paths, then `request_review` if review is needed.
+1. `list_sessions` — see who's connected to the shared database
+2. `create_task` for each piece of work, `assigned_to` = target session ID
+3. `post_message(channel: "general")` summarizing what you assigned
+
+The other agents will pick up their tasks when the human tells them to "find fwens."
+
+## Tools
+
+Sessions: `whoami`, `list_sessions`, `set_label`
+Tasks: `create_task`, `list_tasks`, `claim_task`, `complete_task`
+Reviews: `request_review`, `list_reviews`, `submit_review`, `respond_to_review`
+Messages: `post_message`, `read_messages`
+Context: `get_context`, `get_project_config`
