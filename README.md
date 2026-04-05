@@ -20,17 +20,20 @@ fwens lets multiple CLI coding agents collaborate on the same codebase through a
 ## Quick start
 
 ```bash
-# Initialize fwens in your project
-fwens init
+# Tell any agent to set up the shared database:
+#   "make fwens"
+# This runs fwens init and creates .fwens/fwens.db
 
-# Copy the generated MCP config into each agent's configuration
-# (fwens init prints the path)
+# Launch agents in tmux (or however you like)
+# Each connects to the same .fwens/fwens.db via its MCP config
 
-# Launch your agents and tell each one:
-check fwens
+# Tell the orchestrating agent to create and assign tasks
+# Then tell each agent:
+#   "find fwens"
+# They'll check the shared database, pick up assigned work, and execute
 ```
 
-Each agent connects to the same local MCP server and can see tasks, reviews, and messages from the others.
+Each agent has its own MCP server process, but all share the same `.fwens/fwens.db` — that's the coordination point. No agent starts a separate instance; they all read and write the same database.
 
 ## Architecture
 
