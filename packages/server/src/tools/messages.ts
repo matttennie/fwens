@@ -32,10 +32,13 @@ export function handleReadMessages(
   if (args.channel !== undefined) {
     validateStringLength(args.channel, 200, "channel");
   }
-  const filter: MessageFilter = {
+  if (args.since && !/^\d{4}-\d{2}-\d{2}(T|\s)\d{2}:\d{2}:\d{2}/.test(args.since)) {
+    throw new Error('Invalid since format. Use ISO 8601 datetime (e.g., "2026-01-01T00:00:00")');
+  }
+  const clampedLimit = args.limit !== undefined ? Math.min(args.limit, 1000) : undefined;
+  return readMessages(db, {
     channel: args.channel,
     since: args.since,
-    limit: args.limit,
-  };
-  return readMessages(db, filter);
+    limit: clampedLimit,
+  });
 }
