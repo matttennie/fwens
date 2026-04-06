@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   agent_type   TEXT NOT NULL,
   label        TEXT,
   status       TEXT NOT NULL DEFAULT 'active'
-                 CHECK(status IN ('active','idle','busy','disconnected')),
+                 CHECK(status IN ('active','idle','busy','stuck','disconnected')),
+  tokens_used  INTEGER NOT NULL DEFAULT 0,
   connected_at TEXT NOT NULL DEFAULT (datetime('now')),
   last_seen_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -19,8 +20,9 @@ CREATE TABLE IF NOT EXISTS tasks (
   description  TEXT NOT NULL,
   context      TEXT,
   assigned_to  TEXT REFERENCES sessions(id),
+  short_name   TEXT,
   status       TEXT NOT NULL DEFAULT 'open'
-                 CHECK(status IN ('open','in_progress','done','review_requested','reviewed')),
+                 CHECK(status IN ('open','in_progress','done','review_requested','reviewed','cancelled')),
   created_by   TEXT REFERENCES sessions(id),
   artifacts    TEXT,
   summary      TEXT,

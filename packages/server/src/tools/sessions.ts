@@ -2,13 +2,15 @@ import type Database from "better-sqlite3";
 import {
   type Session,
   type SessionFilter,
+  type UpdateStatusInput,
   getSession,
   listSessions,
   updateSessionStatus,
+  updateStatus,
 } from "../db.js";
 import { validateEnum, validateStringLength } from "../validation.js";
 
-const SESSION_STATUSES = ["active", "idle", "busy", "disconnected"] as const;
+const SESSION_STATUSES = ["active", "idle", "busy", "stuck", "disconnected"] as const;
 
 export function handleWhoami(db: Database.Database, sessionId: string): Session {
   const session = getSession(db, sessionId);
@@ -40,4 +42,15 @@ export function handleSetLabel(
     throw new Error(`Session not found: ${sessionId}`);
   }
   return session;
+}
+
+export function handleUpdateStatus(
+  db: Database.Database,
+  sessionId: string,
+  input: { status?: string; tokens_used?: number },
+): Session {
+  if (input.status) {
+    validateEnum(input.status, ["active", "idle", "busy", "stuck"], "status");
+  }
+  return updateStatus(db, sessionId, input as UpdateStatusInput);
 }

@@ -13,7 +13,7 @@ import {
   updateSessionStatus,
   updateLastSeen,
 } from "./db.js";
-import { handleWhoami, handleListSessions, handleSetLabel } from "./tools/sessions.js";
+import { handleWhoami, handleListSessions, handleSetLabel, handleUpdateStatus } from "./tools/sessions.js";
 import { handleCreateTask, handleListTasks, handleClaimTask, handleCompleteTask } from "./tools/tasks.js";
 import { handleRequestReview, handleListReviews, handleSubmitReview, handleRespondToReview } from "./tools/reviews.js";
 import { handlePostMessage, handleReadMessages } from "./tools/messages.js";
@@ -78,7 +78,7 @@ server.registerTool("list_sessions", {
   title: "List Sessions",
   description: "Lists all agent sessions, optionally filtered by status or agent_type.",
   inputSchema: z.object({
-    status: z.enum(["active", "idle", "busy", "disconnected"]).optional(),
+    status: z.enum(["active", "idle", "busy", "stuck", "disconnected"]).optional(),
     agent_type: z.string().optional(),
   }),
 }, async (args) => {
@@ -109,12 +109,32 @@ server.registerTool("set_label", {
   }
 });
 
+// --- update_status --------------------------------------------------------
+
+server.registerTool("update_status", {
+  title: "Update Status",
+  description: "Update this agent's status (active/idle/busy/stuck) and optionally report token usage. Call with status 'busy' when starting work, 'idle' when done, 'stuck' when blocked.",
+  inputSchema: z.object({
+    status: z.enum(["active", "idle", "busy", "stuck"]).optional(),
+    tokens_used: z.number().int().min(0).optional(),
+  }),
+}, async (args) => {
+  heartbeat();
+  try {
+    const result = handleUpdateStatus(db, sessionId, args);
+    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  } catch (e) {
+    return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };
+  }
+});
+
 // --- create_task -----------------------------------------------------------
 
 server.registerTool("create_task", {
   title: "Create Task",
-  description: "Creates a new task with a description and optional context/assignee.",
+  description: "Creates a new task with a description and optional context/assignee. Always include a short_name (2-4 words) for dashboard display.",
   inputSchema: z.object({
+    short_name: z.string().max(50).optional(),
     description: z.string(),
     context: z.string().optional(),
     assigned_to: z.string().optional(),

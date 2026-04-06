@@ -16,14 +16,17 @@ import {
   validateEnum,
 } from "../validation.js";
 
-const TASK_STATUSES = ["open", "in_progress", "done", "review_requested", "reviewed"] as const;
+const TASK_STATUSES = ["open", "in_progress", "done", "review_requested", "reviewed", "cancelled"] as const;
 
 export function handleCreateTask(
   db: Database.Database,
   sessionId: string,
-  args: { description: string; context?: string; assigned_to?: string },
+  args: { short_name?: string; description: string; context?: string; assigned_to?: string },
   projectRoot: string,
 ): { task_id: string } {
+  if (args.short_name !== undefined) {
+    validateStringLength(args.short_name, 50, "short_name");
+  }
   validateStringLength(args.description, 10_000, "description");
   if (args.context !== undefined) {
     validateStringLength(args.context, 10_000, "context");
@@ -33,6 +36,7 @@ export function handleCreateTask(
   }
 
   const input: CreateTaskInput = {
+    short_name: args.short_name,
     description: args.description,
     context: args.context,
     assigned_to: args.assigned_to,
