@@ -10,6 +10,7 @@ export interface Session {
   agent_type: string;
   label: string | null;
   status: string;
+  tokens_used: number;
   connected_at: string;
   last_seen_at: string;
 }
@@ -21,6 +22,7 @@ export interface SessionFilter {
 
 export interface Task {
   id: string;
+  short_name: string | null;
   description: string;
   context: string | null;
   assigned_to: string | null;
@@ -33,6 +35,7 @@ export interface Task {
 }
 
 export interface CreateTaskInput {
+  short_name?: string;
   description: string;
   context?: string;
   assigned_to?: string;
@@ -154,6 +157,29 @@ export function updateLastSeen(db: Database.Database, id: string): void {
   ).run(id);
 }
 
+export interface UpdateStatusInput {
+  status?: "active" | "idle" | "busy" | "stuck";
+  tokens_used?: number;
+}
+
+export function updateStatus(
+  db: Database.Database,
+  id: string,
+  input: UpdateStatusInput,
+): Session {
+  if (input.status) {
+    db.prepare(
+      `UPDATE sessions SET status = ?, last_seen_at = datetime('now') WHERE id = ?`,
+    ).run(input.status, id);
+  }
+  if (input.tokens_used !== undefined) {
+    db.prepare(
+      `UPDATE sessions SET tokens_used = tokens_used + ?, last_seen_at = datetime('now') WHERE id = ?`,
+    ).run(input.tokens_used, id);
+  }
+  return getSession(db, id)!;
+}
+
 // ---------------------------------------------------------------------------
 // Task operations
 // ---------------------------------------------------------------------------
@@ -165,9 +191,9 @@ export function createTask(
 ): string {
   const id = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO tasks (id, description, context, assigned_to, created_by)
-     VALUES (?, ?, ?, ?, ?)`,
-  ).run(id, input.description, input.context ?? null, input.assigned_to ?? null, sessionId);
+    `INSERT INTO tasks (id, short_name, description, context, assigned_to, created_by)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(id, input.short_name ?? null, input.description, input.context ?? null, input.assigned_to ?? null, sessionId);
   return id;
 }
 
