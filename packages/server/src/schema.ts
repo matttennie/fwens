@@ -55,4 +55,21 @@ CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel, create
 export function initializeDb(db: Database.Database): void {
   db.pragma("journal_mode = WAL");
   db.exec(SCHEMA);
+  migrate(db);
+}
+
+function migrate(db: Database.Database): void {
+  // Add columns that may not exist in older databases
+  const migrations = [
+    "ALTER TABLE sessions ADD COLUMN tokens_used INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE tasks ADD COLUMN short_name TEXT",
+  ];
+
+  for (const sql of migrations) {
+    try {
+      db.exec(sql);
+    } catch {
+      // Column already exists — safe to ignore
+    }
+  }
 }

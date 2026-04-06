@@ -8,6 +8,7 @@ import { runReviews } from "./commands/reviews.js";
 import { runMessages } from "./commands/messages.js";
 import { runSessions } from "./commands/sessions.js";
 import { runSeed } from "./commands/seed.js";
+import { runWatch } from "./commands/watch.js";
 
 const program = new Command();
 
@@ -74,6 +75,15 @@ program
   .argument("[dir]", "project directory", process.cwd())
   .action((taskfile: string, dir: string) => {
     runSeed(path.resolve(dir), taskfile);
+  });
+
+program
+  .command("watch")
+  .description("Live dashboard showing agents, tasks, and status")
+  .argument("[dir]", "project directory", process.cwd())
+  .option("--poll <ms>", "poll interval in milliseconds", "1500")
+  .action((dir: string, opts: { poll: string }) => {
+    runWatch(path.resolve(dir), parseInt(opts.poll, 10));
   });
 
 program.parse();
