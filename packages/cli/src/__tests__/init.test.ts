@@ -68,6 +68,108 @@ describe("runInit", () => {
     expect(claudeConfig.mcpServers.fwens.env.FWENS_PROJECT).toBe(tmpDir);
   });
 
+  it("installs project instruction files that make agents check fwens on startup", () => {
+    runInit(tmpDir);
+
+    for (const filename of [
+      "AGENTS.md",
+      "CLAUDE.md",
+      "GEMINI.md",
+      "OPENCODE.md",
+    ]) {
+      const instructionPath = path.join(tmpDir, filename);
+      expect(fs.existsSync(instructionPath)).toBe(true);
+
+      const content = fs.readFileSync(instructionPath, "utf-8");
+      expect(content).toContain("<!-- fwens:start -->");
+      expect(content).toContain("<!-- fwens:end -->");
+      expect(content).toContain("Mandatory Startup Check");
+      expect(content).toContain(
+        'without waiting for the human to say "find fwens"'
+      );
+      expect(content).toContain("Call `cleanup_completed_tasks`");
+      expect(content).toContain("Call `whoami`");
+      expect(content).toContain("Call `list_tasks`");
+      expect(content).toContain("MUST immediately call `claim_task`");
+      expect(content).toContain(
+        "Do not ask the human whether to claim or begin"
+      );
+      expect(content).toContain("call `claim_task`");
+      expect(content).toContain("call `complete_task`");
+      expect(content).toContain(
+        "Do not ask for permission to start assigned work"
+      );
+      expect(content).toContain("check for unfinished work from previous sessions");
+      expect(content).toContain(
+        "Do not reassign or overwrite unfinished tasks without explicit human confirmation"
+      );
+      expect(content).toContain(path.join(tmpDir, ".fwens", "fwens.db"));
+    }
+  });
+
+  it("writes mirrored instruction files under .fwens for manual setup", () => {
+    runInit(tmpDir);
+    const instructionsDir = path.join(tmpDir, ".fwens", "agent-instructions");
+
+    for (const filename of [
+      "AGENTS.md",
+      "CLAUDE.md",
+      "GEMINI.md",
+      "OPENCODE.md",
+    ]) {
+      const mirroredPath = path.join(instructionsDir, filename);
+      expect(fs.existsSync(mirroredPath)).toBe(true);
+
+      const content = fs.readFileSync(mirroredPath, "utf-8");
+      expect(content).toContain("Mandatory Startup Check");
+      expect(content).toContain("Do not stop after reporting that fwens exists");
+    }
+  });
+
+  it("preserves existing instruction content while adding the fwens block", () => {
+    const agentsPath = path.join(tmpDir, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      "# Project Instructions\n\nKeep local conventions intact.\n"
+    );
+
+    runInit(tmpDir);
+
+    const content = fs.readFileSync(agentsPath, "utf-8");
+    expect(content).toContain("# Project Instructions");
+    expect(content).toContain("Keep local conventions intact.");
+    expect(content).toContain("<!-- fwens:start -->");
+    expect(content).toContain("Mandatory Startup Check");
+  });
+
+  it("replaces an existing managed instruction block instead of duplicating it", () => {
+    const agentsPath = path.join(tmpDir, "AGENTS.md");
+    fs.writeFileSync(
+      agentsPath,
+      [
+        "# Project Instructions",
+        "",
+        "<!-- fwens:start -->",
+        "old fwens instructions",
+        "<!-- fwens:end -->",
+        "",
+        "Keep this footer.",
+        "",
+      ].join("\n")
+    );
+
+    runInit(tmpDir);
+    runInit(tmpDir);
+
+    const content = fs.readFileSync(agentsPath, "utf-8");
+    expect(content).toContain("# Project Instructions");
+    expect(content).toContain("Keep this footer.");
+    expect(content).toContain("Mandatory Startup Check");
+    expect(content).not.toContain("old fwens instructions");
+    expect(content.match(/<!-- fwens:start -->/g)).toHaveLength(1);
+    expect(content.match(/<!-- fwens:end -->/g)).toHaveLength(1);
+  });
+
   it("is idempotent (running twice does not error)", () => {
     runInit(tmpDir);
     // Should not throw

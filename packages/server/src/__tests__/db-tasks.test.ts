@@ -8,9 +8,12 @@ import {
   listTasks,
   claimTask,
   completeTask,
+  cleanupCompletedTasks,
   requestReview,
   getSession,
   getReview,
+  postMessage,
+  readMessages,
 } from "../db.js";
 
 let db: InstanceType<typeof Database>;
@@ -137,6 +140,86 @@ describe("completeTask", () => {
       summary: "Done without artifacts",
     });
     expect(completed.artifacts).toBeNull();
+  });
+});
+
+describe("cleanupCompletedTasks", () => {
+  it("deletes terminal tasks and their task-scoped reviews/messages", () => {
+    const doneTask = createTask(db, sessionId, { description: "Done task" });
+    claimTask(db, doneTask, sessionId);
+    completeTask(db, doneTask, sessionId, { summary: "Done" });
+    postMessage(db, sessionId, {
+      channel: `task:${doneTask}`,
+      content: "Done task message",
+    });
+
+    const reviewedTask = createTask(db, sessionId, {
+      description: "Reviewed task",
+    });
+    claimTask(db, reviewedTask, sessionId);
+    completeTask(db, reviewedTask, sessionId, { summary: "Ready" });
+    const reviewId = requestReview(db, reviewedTask, sessionId);
+    db.prepare(
+      `UPDATE reviews SET verdict = 'pass', findings = 'Looks good' WHERE id = ?`,
+    ).run(reviewId);
+    db.prepare(`UPDATE tasks SET status = 'reviewed' WHERE id = ?`).run(
+      reviewedTask,
+    );
+    postMessage(db, sessionId, {
+      channel: `task:${reviewedTask}`,
+      content: "Reviewed task message",
+    });
+
+    const cancelledTask = createTask(db, sessionId, {
+      description: "Cancelled task",
+    });
+    db.prepare(`UPDATE tasks SET status = 'cancelled' WHERE id = ?`).run(
+      cancelledTask,
+    );
+
+    const result = cleanupCompletedTasks(db);
+
+    expect(result).toEqual({
+      deleted_tasks: 3,
+      deleted_reviews: 1,
+      deleted_messages: 2,
+    });
+    expect(getTask(db, doneTask)).toBeUndefined();
+    expect(getTask(db, reviewedTask)).toBeUndefined();
+    expect(getTask(db, cancelledTask)).toBeUndefined();
+    expect(getReview(db, reviewId)).toBeUndefined();
+    expect(readMessages(db, { channel: `task:${doneTask}` })).toHaveLength(0);
+    expect(readMessages(db, { channel: `task:${reviewedTask}` })).toHaveLength(
+      0,
+    );
+  });
+
+  it("preserves unfinished tasks", () => {
+    const openTask = createTask(db, sessionId, { description: "Open task" });
+
+    const inProgressTask = createTask(db, sessionId, {
+      description: "In-progress task",
+    });
+    claimTask(db, inProgressTask, sessionId);
+
+    const reviewRequestedTask = createTask(db, sessionId, {
+      description: "Review requested task",
+    });
+    claimTask(db, reviewRequestedTask, sessionId);
+    completeTask(db, reviewRequestedTask, sessionId, { summary: "Ready" });
+    const reviewId = requestReview(db, reviewRequestedTask, sessionId);
+
+    const result = cleanupCompletedTasks(db);
+
+    expect(result).toEqual({
+      deleted_tasks: 0,
+      deleted_reviews: 0,
+      deleted_messages: 0,
+    });
+    expect(getTask(db, openTask)!.status).toBe("open");
+    expect(getTask(db, inProgressTask)!.status).toBe("in_progress");
+    expect(getTask(db, reviewRequestedTask)!.status).toBe("review_requested");
+    expect(getReview(db, reviewId)).toBeDefined();
   });
 });
 

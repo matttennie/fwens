@@ -12,9 +12,10 @@ import {
   createSession,
   updateSessionStatus,
   updateLastSeen,
+  cleanupCompletedTasks,
 } from "./db.js";
 import { handleWhoami, handleListSessions, handleSetLabel, handleUpdateStatus } from "./tools/sessions.js";
-import { handleCreateTask, handleListTasks, handleClaimTask, handleCompleteTask } from "./tools/tasks.js";
+import { handleCreateTask, handleListTasks, handleClaimTask, handleCompleteTask, handleCleanupCompletedTasks } from "./tools/tasks.js";
 import { handleRequestReview, handleListReviews, handleSubmitReview, handleRespondToReview } from "./tools/reviews.js";
 import { handlePostMessage, handleReadMessages } from "./tools/messages.js";
 import { handleGetContext } from "./tools/context.js";
@@ -45,6 +46,7 @@ initializeDb(db);
 // ---------------------------------------------------------------------------
 
 const sessionId = createSession(db, agentType, agentLabel);
+cleanupCompletedTasks(db);
 
 function heartbeat(): void {
   updateLastSeen(db, sessionId);
@@ -201,6 +203,22 @@ server.registerTool("complete_task", {
   heartbeat();
   try {
     const result = handleCompleteTask(db, sessionId, args, projectRoot);
+    return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
+  } catch (e) {
+    return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };
+  }
+});
+
+// --- cleanup_completed_tasks ----------------------------------------------
+
+server.registerTool("cleanup_completed_tasks", {
+  title: "Cleanup Completed Tasks",
+  description: "Deletes terminal completed tasks and their task-scoped reviews/messages. Preserves open, in-progress, and review-requested work.",
+  inputSchema: z.object({}),
+}, async () => {
+  heartbeat();
+  try {
+    const result = handleCleanupCompletedTasks(db);
     return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
   } catch (e) {
     return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };
