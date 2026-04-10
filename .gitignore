@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.fwens/
 *.db
 *.db-wal
 *.db-shm

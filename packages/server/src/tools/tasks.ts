@@ -8,6 +8,7 @@ import {
   listTasks,
   claimTask,
   completeTask,
+  cleanupCompletedTasks,
 } from "../db.js";
 import {
   validateUuid,
@@ -93,4 +94,10 @@ export function handleCompleteTask(
     artifacts: args.artifacts,
   };
   return completeTask(db, args.task_id, sessionId, input);
+}
+
+export function handleCleanupCompletedTasks(
+  db: Database.Database,
+): { deleted_tasks: number; deleted_reviews: number; deleted_messages: number } {
+  return cleanupCompletedTasks(db);
 }

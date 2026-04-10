@@ -98,6 +98,12 @@ export interface TaskContext {
   messages: Message[];
 }
 
+export interface CleanupCompletedTasksResult {
+  deleted_tasks: number;
+  deleted_reviews: number;
+  deleted_messages: number;
+}
+
 // ---------------------------------------------------------------------------
 // Session operations
 // ---------------------------------------------------------------------------
@@ -271,6 +277,44 @@ export function completeTask(
   txn();
 
   return getTask(db, taskId)!;
+}
+
+export function cleanupCompletedTasks(
+  db: Database.Database,
+): CleanupCompletedTasksResult {
+  const terminalTasks = db
+    .prepare(
+      `SELECT id FROM tasks WHERE status IN ('done', 'reviewed', 'cancelled')`,
+    )
+    .all() as Array<{ id: string }>;
+
+  if (terminalTasks.length === 0) {
+    return { deleted_tasks: 0, deleted_reviews: 0, deleted_messages: 0 };
+  }
+
+  const taskIds = terminalTasks.map((task) => task.id);
+  let deletedReviews = 0;
+  let deletedMessages = 0;
+  let deletedTasks = 0;
+
+  const txn = db.transaction(() => {
+    const deleteReviews = db.prepare(`DELETE FROM reviews WHERE task_id = ?`);
+    const deleteMessages = db.prepare(`DELETE FROM messages WHERE channel = ?`);
+    const deleteTask = db.prepare(`DELETE FROM tasks WHERE id = ?`);
+
+    for (const taskId of taskIds) {
+      deletedReviews += deleteReviews.run(taskId).changes;
+      deletedMessages += deleteMessages.run(`task:${taskId}`).changes;
+      deletedTasks += deleteTask.run(taskId).changes;
+    }
+  });
+  txn();
+
+  return {
+    deleted_tasks: deletedTasks,
+    deleted_reviews: deletedReviews,
+    deleted_messages: deletedMessages,
+  };
 }
 
 export function requestReview(
