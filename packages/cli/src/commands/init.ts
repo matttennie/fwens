@@ -183,17 +183,36 @@ function writeMcpConfigs(mcpDir: string, projectDir: string): void {
     path.join(mcpDir, "gemini.json"),
     makeJsonConfig("gemini") + "\n"
   );
+  // OpenCode uses a different JSON schema: "mcp" key, command as array, "environment" not "env"
+  const opencodeConfig = JSON.stringify(
+    {
+      mcp: {
+        fwens: {
+          type: "local",
+          command: ["node", serverPath],
+          environment: {
+            FWENS_PROJECT: projectDir,
+            FWENS_AGENT_TYPE: "opencode",
+          },
+          enabled: true,
+        },
+      },
+    },
+    null,
+    2
+  );
   fs.writeFileSync(
     path.join(mcpDir, "opencode.json"),
-    makeJsonConfig("opencode") + "\n"
+    opencodeConfig + "\n"
   );
-  // Codex CLI uses TOML format
+  // Codex CLI uses TOML format — escape values to prevent injection via special chars
+  const escapeTomlString = (s: string) => s.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
   const codexToml = `[mcp_servers.fwens]
 command = "node"
-args = ["${serverPath}"]
+args = ["${escapeTomlString(serverPath)}"]
 
 [mcp_servers.fwens.env]
-FWENS_PROJECT = "${projectDir}"
+FWENS_PROJECT = "${escapeTomlString(projectDir)}"
 FWENS_AGENT_TYPE = "codex"
 `;
   fs.writeFileSync(path.join(mcpDir, "codex.toml"), codexToml);

@@ -60,12 +60,27 @@ describe("runInit", () => {
     expect(fs.existsSync(path.join(mcpDir, "codex.toml"))).toBe(true);
     expect(fs.existsSync(path.join(mcpDir, "opencode.json"))).toBe(true);
 
-    // Verify claude.json content
+    // Verify claude.json content (mcpServers format)
     const claudeConfig = JSON.parse(
       fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8")
     );
     expect(claudeConfig.mcpServers.fwens.env.FWENS_AGENT_TYPE).toBe("claude");
     expect(claudeConfig.mcpServers.fwens.env.FWENS_PROJECT).toBe(tmpDir);
+
+    // Verify opencode.json uses OpenCode's schema (not mcpServers)
+    const opencodeConfig = JSON.parse(
+      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8")
+    );
+    expect(opencodeConfig.mcp.fwens.type).toBe("local");
+    expect(opencodeConfig.mcp.fwens.command).toBeInstanceOf(Array);
+    expect(opencodeConfig.mcp.fwens.command[0]).toBe("node");
+    expect(opencodeConfig.mcp.fwens.environment.FWENS_AGENT_TYPE).toBe("opencode");
+    expect(opencodeConfig.mcp.fwens.environment.FWENS_PROJECT).toBe(tmpDir);
+    expect(opencodeConfig.mcp.fwens.enabled).toBe(true);
+    // Should NOT have the wrong keys
+    expect(opencodeConfig.mcpServers).toBeUndefined();
+    expect(opencodeConfig.mcp.fwens.env).toBeUndefined();
+    expect(opencodeConfig.mcp.fwens.args).toBeUndefined();
   });
 
   it("installs project instruction files that make agents check fwens on startup", () => {
