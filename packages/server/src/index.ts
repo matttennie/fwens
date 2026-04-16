@@ -10,6 +10,8 @@ import { z } from "zod";
 import { initializeDb } from "./schema.js";
 import {
   createSession,
+  findDisconnectedSession,
+  resumeSession,
   updateSessionStatus,
   updateLastSeen,
   cleanupCompletedTasks,
@@ -19,6 +21,7 @@ import { handleCreateTask, handleListTasks, handleClaimTask, handleCompleteTask,
 import { handleRequestReview, handleListReviews, handleSubmitReview, handleRespondToReview } from "./tools/reviews.js";
 import { handlePostMessage, handleReadMessages } from "./tools/messages.js";
 import { handleGetContext } from "./tools/context.js";
+import { validateUuid } from "./validation.js";
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -27,6 +30,11 @@ import { handleGetContext } from "./tools/context.js";
 const projectRoot = process.env.FWENS_PROJECT ?? process.cwd();
 const agentType = process.env.FWENS_AGENT_TYPE ?? "claude";
 const agentLabel = process.env.FWENS_LABEL;
+const rawResumeSessionId = process.env.FWENS_SESSION_ID;
+const resumeSessionId = rawResumeSessionId
+  ? (() => { try { return validateUuid(rawResumeSessionId); } catch { return undefined; } })()
+  : undefined;
+const resumeLabel = process.env.FWENS_RESUME_LABEL;
 
 // ---------------------------------------------------------------------------
 // Database setup
@@ -42,10 +50,41 @@ const db = new Database(dbPath);
 initializeDb(db);
 
 // ---------------------------------------------------------------------------
-// Session
+// Session — resume an existing disconnected session or create a new one
 // ---------------------------------------------------------------------------
 
-const sessionId = createSession(db, agentType, agentLabel);
+let sessionId: string;
+
+// Try explicit ID first, then label, then create new
+const existingSession =
+  (resumeSessionId
+    ? findDisconnectedSession(db, { sessionId: resumeSessionId, agentType })
+    : undefined) ??
+  (resumeLabel
+    ? findDisconnectedSession(db, { label: resumeLabel, agentType })
+    : undefined);
+
+if (existingSession) {
+  resumeSession(db, existingSession.id, {
+    label: agentLabel,
+  });
+  sessionId = existingSession.id;
+} else {
+  sessionId = createSession(db, agentType, agentLabel);
+}
+
+// Log session start to history file for recall across restarts
+const historyPath = path.join(fwensDir, "session-history.jsonl");
+const historyEntry = JSON.stringify({
+  session_id: sessionId,
+  agent_type: agentType,
+  label: agentLabel ?? null,
+  resumed: !!existingSession,
+  previous_connected_at: existingSession?.connected_at ?? null,
+  timestamp: new Date().toISOString(),
+}) + "\n";
+fs.appendFileSync(historyPath, historyEntry);
+
 cleanupCompletedTasks(db);
 
 function heartbeat(): void {

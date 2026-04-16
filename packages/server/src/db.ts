@@ -120,6 +120,84 @@ export function createSession(
   return id;
 }
 
+export interface FindDisconnectedSessionOptions {
+  sessionId?: string;
+  label?: string;
+  agentType?: string;
+}
+
+export function findDisconnectedSession(
+  db: Database.Database,
+  opts: FindDisconnectedSessionOptions,
+): Session | undefined {
+  // Explicit session ID takes precedence, but still must match agent_type if provided
+  if (opts.sessionId) {
+    if (opts.agentType) {
+      return db
+        .prepare(
+          `SELECT * FROM sessions WHERE id = ? AND status = 'disconnected' AND agent_type = ?`,
+        )
+        .get(opts.sessionId, opts.agentType) as Session | undefined;
+    }
+    return db
+      .prepare(`SELECT * FROM sessions WHERE id = ? AND status = 'disconnected'`)
+      .get(opts.sessionId) as Session | undefined;
+  }
+
+  // Label-based lookup — require non-empty label
+  if (!opts.label) return undefined;
+
+  const clauses = ["status = 'disconnected'", "label = ?"];
+  const params: unknown[] = [opts.label];
+
+  if (opts.agentType) {
+    clauses.push("agent_type = ?");
+    params.push(opts.agentType);
+  }
+
+  return db
+    .prepare(
+      `SELECT * FROM sessions WHERE ${clauses.join(" AND ")} ORDER BY last_seen_at DESC LIMIT 1`,
+    )
+    .get(...params) as Session | undefined;
+}
+
+export interface ResumeSessionOptions {
+  label?: string;
+}
+
+export function resumeSession(
+  db: Database.Database,
+  sessionId: string,
+  opts?: ResumeSessionOptions,
+): Session {
+  const session = getSession(db, sessionId);
+  if (!session) {
+    throw new Error(`Session not found: ${sessionId}`);
+  }
+  if (session.status !== "disconnected") {
+    throw new Error(
+      `Session ${sessionId} is not disconnected (status: ${session.status})`,
+    );
+  }
+
+  const setClauses = ["status = 'active'", "last_seen_at = datetime('now')"];
+  const params: unknown[] = [];
+
+  if (opts?.label !== undefined) {
+    setClauses.push("label = ?");
+    params.push(opts.label);
+  }
+
+  params.push(sessionId);
+
+  db.prepare(
+    `UPDATE sessions SET ${setClauses.join(", ")} WHERE id = ?`,
+  ).run(...params);
+
+  return getSession(db, sessionId)!;
+}
+
 export function getSession(
   db: Database.Database,
   id: string,
