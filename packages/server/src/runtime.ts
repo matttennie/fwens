@@ -74,9 +74,19 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
       });
     }
 
-    // Sweep stale sessions left behind by crashed processes. Sessions with
-    // a NULL pid (rows created before this column was added) are left alone.
-    pruneStaleSessions(db);
+    // Sweep stale sessions left behind by crashed processes. Logs each
+    // prune event to .fwens/prune-events.jsonl so vanishing sessions are
+    // traceable post-mortem.
+    const pruneResult = pruneStaleSessions(db);
+    if (pruneResult.events.length > 0) {
+      try {
+        const pruneLogPath = path.join(fwensDir, "prune-events.jsonl");
+        const lines = pruneResult.events.map((e) => JSON.stringify(e)).join("\n") + "\n";
+        fs.appendFileSync(pruneLogPath, lines);
+      } catch {
+        // Best-effort logging.
+      }
+    }
 
     const historyPath = path.join(fwensDir, "session-history.jsonl");
     const historyEntry =

@@ -1,12 +1,14 @@
+import fs from "node:fs";
+import path from "node:path";
 import type Database from "better-sqlite3";
 import {
+  type PruneStaleSessionsResult,
   type Session,
   type SessionFilter,
   type UpdateStatusInput,
   getSession,
   listSessions,
   pruneStaleSessions,
-  updateSessionStatus,
   updateStatus,
 } from "../db.js";
 import { validateEnum, validateStringLength } from "../validation.js";
@@ -21,13 +23,40 @@ export function handleWhoami(db: Database.Database, sessionId: string): Session 
   return session;
 }
 
+// Idempotent: no longer mutates session state. Callers needing a fresh
+// prune sweep should call handlePruneSessions explicitly.
 export function handleListSessions(db: Database.Database, filter?: SessionFilter): Session[] {
   if (filter?.status) {
     validateEnum(filter.status, SESSION_STATUSES, "status");
   }
-  pruneStaleSessions(db);
   return listSessions(db, filter);
 }
+
+export function handlePruneSessions(
+  db: Database.Database,
+  fwensDir: string,
+): PruneStaleSessionsResult {
+  const result = pruneStaleSessions(db);
+  if (result.events.length > 0) {
+    appendPruneEvents(fwensDir, result.events);
+  }
+  return result;
+}
+
+function appendPruneEvents(
+  fwensDir: string,
+  events: PruneStaleSessionsResult["events"],
+): void {
+  try {
+    const logPath = path.join(fwensDir, "prune-events.jsonl");
+    const lines = events.map((e) => JSON.stringify(e)).join("\n") + "\n";
+    fs.appendFileSync(logPath, lines);
+  } catch {
+    // Best-effort logging; never fail the prune itself.
+  }
+}
+
+export { appendPruneEvents };
 
 export function handleSetLabel(db: Database.Database, sessionId: string, label: string): Session {
   validateStringLength(label, 200, "label");
