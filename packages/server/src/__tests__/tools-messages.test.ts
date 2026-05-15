@@ -27,9 +27,9 @@ describe("handlePostMessage", () => {
   });
 
   it("rejects content exceeding 10,000 chars", () => {
-    expect(() =>
-      handlePostMessage(db, sessionId, { content: "x".repeat(10_001) }),
-    ).toThrow("exceeds maximum length");
+    expect(() => handlePostMessage(db, sessionId, { content: "x".repeat(10_001) })).toThrow(
+      "exceeds maximum length",
+    );
   });
 
   it("rejects channel name exceeding 200 chars", () => {

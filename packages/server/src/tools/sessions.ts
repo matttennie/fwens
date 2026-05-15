@@ -43,10 +43,7 @@ export function handlePruneSessions(
   return result;
 }
 
-function appendPruneEvents(
-  fwensDir: string,
-  events: PruneStaleSessionsResult["events"],
-): void {
+function appendPruneEvents(fwensDir: string, events: PruneStaleSessionsResult["events"]): void {
   try {
     const logPath = path.join(fwensDir, "prune-events.jsonl");
     const lines = events.map((e) => JSON.stringify(e)).join("\n") + "\n";

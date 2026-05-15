@@ -1,7 +1,14 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Database from "better-sqlite3";
 import { initializeDb } from "../schema.js";
-import { createSession, createTask, claimTask, completeTask, postMessage, requestReview } from "../db.js";
+import {
+  createSession,
+  createTask,
+  claimTask,
+  completeTask,
+  postMessage,
+  requestReview,
+} from "../db.js";
 import { handleGetContext } from "../tools/context.js";
 
 let db: InstanceType<typeof Database>;
@@ -42,8 +49,8 @@ describe("handleGetContext", () => {
   });
 
   it("throws for nonexistent task", () => {
-    expect(() =>
-      handleGetContext(db, "00000000-0000-0000-0000-000000000000"),
-    ).toThrow("Task not found");
+    expect(() => handleGetContext(db, "00000000-0000-0000-0000-000000000000")).toThrow(
+      "Task not found",
+    );
   });
 });

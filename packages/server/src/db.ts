@@ -505,9 +505,7 @@ export function claimTask(db: Database.Database, taskId: string, sessionId: stri
       if (task.status !== "open") {
         throw new Error(`Task ${taskId} is not open (status: ${task.status})`);
       }
-      throw new Error(
-        `Task ${taskId} is assigned to another active session (${task.assigned_to})`,
-      );
+      throw new Error(`Task ${taskId} is assigned to another active session (${task.assigned_to})`);
     }
 
     db.prepare(`UPDATE sessions SET status = 'busy' WHERE id = ?`).run(sessionId);
@@ -553,9 +551,7 @@ export function completeTask(
           `Task ${taskId} cannot be completed from status '${task.status}' (must be in_progress or review_requested)`,
         );
       }
-      throw new Error(
-        `Task ${taskId} can only be completed by its assignee or creator`,
-      );
+      throw new Error(`Task ${taskId} can only be completed by its assignee or creator`);
     }
 
     db.prepare(`UPDATE sessions SET status = 'idle' WHERE id = ?`).run(sessionId);

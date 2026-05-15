@@ -51,9 +51,10 @@ describe("index.ts shape — drift guard for runtime/index duplication", () => {
   });
 
   it("does not import the SQLite driver directly", () => {
-    expect(src, "index.ts must not import better-sqlite3 — DB ownership lives in runtime.ts").not.toMatch(
-      /from\s+["']better-sqlite3["']/,
-    );
+    expect(
+      src,
+      "index.ts must not import better-sqlite3 — DB ownership lives in runtime.ts",
+    ).not.toMatch(/from\s+["']better-sqlite3["']/);
   });
 
   it("does not import the schema initializer directly", () => {

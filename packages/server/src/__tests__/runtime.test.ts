@@ -133,9 +133,9 @@ describe("runtime initialization", () => {
     });
 
     const s = runtime.heartbeat();
-    const t1 = s.db
-      .prepare("SELECT last_seen_at FROM sessions WHERE id = ?")
-      .get(s.sessionId) as { last_seen_at: string };
+    const t1 = s.db.prepare("SELECT last_seen_at FROM sessions WHERE id = ?").get(s.sessionId) as {
+      last_seen_at: string;
+    };
 
     // SQLite's datetime('now') has 1-second granularity. Sleep just over 1s
     // so the second write produces a distinguishable timestamp.
@@ -144,9 +144,9 @@ describe("runtime initialization", () => {
     clock += 31_000; // past the 30s window
     runtime.heartbeat();
 
-    const t2 = s.db
-      .prepare("SELECT last_seen_at FROM sessions WHERE id = ?")
-      .get(s.sessionId) as { last_seen_at: string };
+    const t2 = s.db.prepare("SELECT last_seen_at FROM sessions WHERE id = ?").get(s.sessionId) as {
+      last_seen_at: string;
+    };
 
     expect(t2.last_seen_at).not.toBe(t1.last_seen_at);
 

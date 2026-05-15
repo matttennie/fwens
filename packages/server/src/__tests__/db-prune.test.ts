@@ -19,7 +19,10 @@ beforeEach(() => {
 // Force a session's last_seen_at to a specific UTC timestamp. SQLite stores
 // datetime('now') as space-separated UTC text, so we match the format.
 function setLastSeen(id: string, when: Date): void {
-  const iso = when.toISOString().replace("T", " ").replace(/\..+Z$/, "");
+  const iso = when
+    .toISOString()
+    .replace("T", " ")
+    .replace(/\..+Z$/, "");
   db.prepare(`UPDATE sessions SET last_seen_at = ? WHERE id = ?`).run(iso, id);
 }
 

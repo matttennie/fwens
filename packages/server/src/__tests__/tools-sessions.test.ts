@@ -168,7 +168,11 @@ describe("handlePruneSessions", () => {
 
     const logPath = path.join(tmpDir, "prune-events.jsonl");
     expect(fs.existsSync(logPath)).toBe(true);
-    const logged = fs.readFileSync(logPath, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    const logged = fs
+      .readFileSync(logPath, "utf8")
+      .trim()
+      .split("\n")
+      .map((l) => JSON.parse(l));
     expect(logged.some((e) => e.session_id === ghostId && e.reason === "dead_pid")).toBe(true);
   });
 
