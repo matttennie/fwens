@@ -70,8 +70,15 @@ function migrate(db: Database.Database): void {
   for (const sql of migrations) {
     try {
       db.exec(sql);
-    } catch {
-      // Column already exists — safe to ignore
+    } catch (e) {
+      // Only swallow the "column already exists" error from re-running an
+      // ALTER TABLE ADD COLUMN. Any other SQLite error indicates a real
+      // migration failure that should not be silently ignored.
+      const msg = (e as Error).message ?? "";
+      if (msg.includes("duplicate column name")) {
+        continue;
+      }
+      throw e;
     }
   }
 }

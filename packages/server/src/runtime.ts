@@ -64,7 +64,11 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
     fs.mkdirSync(fwensDir, { recursive: true });
 
     const dbPath = path.join(fwensDir, "fwens.db");
-    const db = new Database(dbPath);
+    // Explicit 5s busy timeout. better-sqlite3 defaults to this value, but
+    // setting it explicitly documents the intent and protects against
+    // upstream default changes. Two writers racing on the same .fwens.db
+    // will serialize via WAL; the loser waits up to this long.
+    const db = new Database(dbPath, { timeout: 5000 });
     initializeDb(db);
 
     const existingSession =
