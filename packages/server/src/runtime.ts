@@ -3,7 +3,6 @@ import path from "node:path";
 import Database from "better-sqlite3";
 import { initializeDb } from "./schema.js";
 import {
-  cleanupCompletedTasks,
   createSession,
   findDisconnectedSession,
   pruneStaleSessions,
@@ -119,7 +118,11 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
       }) + "\n";
     fs.appendFileSync(historyPath, historyEntry);
 
-    cleanupCompletedTasks(db);
+    // Note: cleanupCompletedTasks is intentionally NOT called here. Deleting
+    // history at boot is hostile to debugging and breaks any prerequisite
+    // chain that references done-task IDs (e.g., multi-wave review flows).
+    // The MCP tool is still exposed for explicit cleanup when the user
+    // actually wants it.
 
     state = {
       db,
