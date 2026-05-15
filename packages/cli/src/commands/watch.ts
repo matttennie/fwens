@@ -432,8 +432,10 @@ export function runWatch(projectDir: string, pollMs: number): void {
     }
   });
 
-  srv.listen(port, () => {
-    const url = `http://localhost:${port}`;
+  // Bind explicitly to 127.0.0.1 — the dashboard is local-only by design;
+  // it must not be reachable from other hosts on the network.
+  srv.listen(port, "127.0.0.1", () => {
+    const url = `http://127.0.0.1:${port}`;
     console.log(`fwens watch → ${url}`);
     console.log("Press Ctrl-C to quit.\n");
 
