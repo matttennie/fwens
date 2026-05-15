@@ -18,7 +18,17 @@ export interface RuntimeConfig {
   agentLabel?: string;
   resumeSessionId?: string;
   resumeLabel?: string;
+  // Skip the heartbeat DB write if fewer than this many ms have elapsed
+  // since the last write. Defaults to 30s, configurable via
+  // FWENS_HEARTBEAT_DEBOUNCE_MS. Set to 0 to disable debouncing.
+  heartbeatDebounceMs?: number;
+  // Clock injection for tests.
+  now?: () => number;
 }
+
+// 30s default debounce on per-heartbeat last_seen_at updates. Bounded well
+// below the 24h prune threshold, so functionally invisible to consumers.
+export const DEFAULT_HEARTBEAT_DEBOUNCE_MS = 30_000;
 
 export interface RuntimeState {
   db: Database.Database;
@@ -36,6 +46,15 @@ export interface RuntimeManager {
 
 export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
   let state: RuntimeState | undefined;
+  let lastHeartbeatWriteAt = 0;
+
+  const envDebounce = process.env.FWENS_HEARTBEAT_DEBOUNCE_MS;
+  const debounceMs =
+    config.heartbeatDebounceMs ??
+    (envDebounce !== undefined && Number.isFinite(Number(envDebounce))
+      ? Number(envDebounce)
+      : DEFAULT_HEARTBEAT_DEBOUNCE_MS);
+  const now = config.now ?? (() => Date.now());
 
   function getRuntime(): RuntimeState {
     if (state) {
@@ -113,7 +132,11 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
 
   function heartbeat(): RuntimeState {
     const runtime = getRuntime();
-    updateLastSeen(runtime.db, runtime.sessionId);
+    const t = now();
+    if (t - lastHeartbeatWriteAt >= debounceMs) {
+      updateLastSeen(runtime.db, runtime.sessionId);
+      lastHeartbeatWriteAt = t;
+    }
     return runtime;
   }
 
