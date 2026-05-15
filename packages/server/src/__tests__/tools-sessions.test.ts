@@ -1,4 +1,7 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import Database from "better-sqlite3";
 import { initializeDb } from "../schema.js";
 import { createSession, getSession, updateSessionStatus } from "../db.js";
@@ -7,6 +10,7 @@ import {
   handleListSessions,
   handleSetLabel,
   handleUpdateStatus,
+  handlePruneSessions,
 } from "../tools/sessions.js";
 
 let db: InstanceType<typeof Database>;
@@ -41,22 +45,15 @@ describe("handleListSessions", () => {
     expect(sessions).toHaveLength(2);
   });
 
-  it("prunes stale sessions before returning the list", () => {
-    // A session with a known-dead PID should be marked disconnected by the
-    // prune that runs at the top of handleListSessions.
-    const deadPid = 4_194_303;
-    const ghostId = createSession(db, "codex", "ghost", deadPid);
+  it("is idempotent — does not mutate session state (read-shaped)", () => {
+    // Even when a session has a dead PID, list_sessions must not prune it;
+    // that's now the exclusive job of prune_sessions.
+    const ghostId = createSession(db, "codex", "ghost", 42);
+    const beforeStatus = getSession(db, ghostId)!.status;
 
-    const all = handleListSessions(db);
-    const ghost = all.find((s) => s.id === ghostId)!;
-    expect(ghost.status).toBe("disconnected");
-  });
-
-  it("does not prune legacy sessions (NULL pid)", () => {
-    // The base beforeEach session has no PID; it must stay active even
-    // though it would otherwise look "stale" with no liveness signal.
     handleListSessions(db);
-    expect(getSession(db, sessionId)!.status).toBe("active");
+
+    expect(getSession(db, ghostId)!.status).toBe(beforeStatus);
   });
 
   it("filters by status", () => {
@@ -142,5 +139,53 @@ describe("handleUpdateStatus", () => {
     const session = handleUpdateStatus(db, sessionId, { status: "busy", tokens_used: 2000 });
     expect(session.status).toBe("busy");
     expect(session.tokens_used).toBe(2000);
+  });
+});
+
+describe("handlePruneSessions", () => {
+  let tmpDir: string;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "fwens-prune-handler-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("prunes sessions with dead PIDs and writes audit events to prune-events.jsonl", () => {
+    // Spawn-and-reap a child to get a real dead PID.
+    const { spawnSync } = require("node:child_process") as typeof import("node:child_process");
+    const child = spawnSync(process.execPath, ["-e", ""]);
+    const deadPid = child.pid!;
+
+    const ghostId = createSession(db, "codex", "ghost", deadPid);
+
+    const result = handlePruneSessions(db, tmpDir);
+
+    expect(result.pruned_dead_pid).toBeGreaterThanOrEqual(1);
+    expect(getSession(db, ghostId)!.status).toBe("disconnected");
+
+    const logPath = path.join(tmpDir, "prune-events.jsonl");
+    expect(fs.existsSync(logPath)).toBe(true);
+    const logged = fs.readFileSync(logPath, "utf8").trim().split("\n").map((l) => JSON.parse(l));
+    expect(logged.some((e) => e.session_id === ghostId && e.reason === "dead_pid")).toBe(true);
+  });
+
+  it("writes nothing to the log file when no sessions are pruned", () => {
+    createSession(db, "claude", "alive", process.pid);
+
+    handlePruneSessions(db, tmpDir);
+
+    const logPath = path.join(tmpDir, "prune-events.jsonl");
+    expect(fs.existsSync(logPath)).toBe(false);
+  });
+
+  it("tolerates an unwritable fwensDir without throwing", () => {
+    createSession(db, "codex", "ghost", 42);
+    // Mock a non-existent path; the catch block should swallow.
+    expect(() =>
+      handlePruneSessions(db, "/nonexistent/path/that/cannot/be/created/by/this/test"),
+    ).not.toThrow();
   });
 });
