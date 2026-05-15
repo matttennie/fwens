@@ -11,6 +11,7 @@ import { initializeDb } from "./schema.js";
 import {
   createSession,
   findDisconnectedSession,
+  pruneStaleSessions,
   resumeSession,
   updateSessionStatus,
   updateLastSeen,
@@ -67,10 +68,11 @@ const existingSession =
 if (existingSession) {
   resumeSession(db, existingSession.id, {
     label: agentLabel,
+    pid: process.pid,
   });
   sessionId = existingSession.id;
 } else {
-  sessionId = createSession(db, agentType, agentLabel);
+  sessionId = createSession(db, agentType, agentLabel, process.pid);
 }
 
 // Log session start to history file for recall across restarts
@@ -86,6 +88,7 @@ const historyEntry = JSON.stringify({
 fs.appendFileSync(historyPath, historyEntry);
 
 cleanupCompletedTasks(db);
+pruneStaleSessions(db);
 
 function heartbeat(): void {
   updateLastSeen(db, sessionId);
