@@ -135,9 +135,7 @@ describe("submitReview — verdict routing (state machine)", () => {
 describe("requestReview — lifecycle precondition", () => {
   it("throws when called on an open task", () => {
     const openTaskId = createTask(db, sessionId, { description: "still open" });
-    expect(() => requestReview(db, openTaskId, sessionId)).toThrow(
-      "task must be 'done' first",
-    );
+    expect(() => requestReview(db, openTaskId, sessionId)).toThrow("task must be 'done' first");
   });
 
   it("throws when called on an in_progress task", () => {

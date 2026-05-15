@@ -128,9 +128,9 @@ describe("handleClaimTask", () => {
   });
 
   it("throws for nonexistent task", () => {
-    expect(() =>
-      handleClaimTask(db, sessionId, "00000000-0000-0000-0000-000000000000"),
-    ).toThrow("Task not found");
+    expect(() => handleClaimTask(db, sessionId, "00000000-0000-0000-0000-000000000000")).toThrow(
+      "Task not found",
+    );
   });
 });
 

@@ -161,9 +161,9 @@ describe("handleRespondToReview", () => {
   });
 
   it("rejects invalid review_id UUID", () => {
-    expect(() =>
-      handleRespondToReview(db, { review_id: "not-a-uuid", response: "ok" }),
-    ).toThrow("Invalid UUID");
+    expect(() => handleRespondToReview(db, { review_id: "not-a-uuid", response: "ok" })).toThrow(
+      "Invalid UUID",
+    );
   });
 
   it("rejects response exceeding 50,000 chars", () => {
