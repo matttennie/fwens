@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS sessions (
                  CHECK(status IN ('active','idle','busy','stuck','disconnected')),
   tokens_used  INTEGER NOT NULL DEFAULT 0,
   connected_at TEXT NOT NULL DEFAULT (datetime('now')),
-  last_seen_at TEXT NOT NULL DEFAULT (datetime('now'))
+  last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
+  pid          INTEGER
 );
 
 CREATE TABLE IF NOT EXISTS tasks (
@@ -63,6 +64,7 @@ function migrate(db: Database.Database): void {
   const migrations = [
     "ALTER TABLE sessions ADD COLUMN tokens_used INTEGER NOT NULL DEFAULT 0",
     "ALTER TABLE tasks ADD COLUMN short_name TEXT",
+    "ALTER TABLE sessions ADD COLUMN pid INTEGER",
   ];
 
   for (const sql of migrations) {

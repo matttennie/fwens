@@ -13,6 +13,13 @@ export interface Session {
   tokens_used: number;
   connected_at: string;
   last_seen_at: string;
+  pid: number | null;
+}
+
+export interface PruneStaleSessionsResult {
+  pruned: number;
+  kept_alive: number;
+  skipped_no_pid: number;
 }
 
 export interface SessionFilter {
@@ -112,11 +119,15 @@ export function createSession(
   db: Database.Database,
   agentType: string,
   label?: string,
+  pid?: number,
 ): string {
   const id = crypto.randomUUID();
-  db.prepare(
-    `INSERT INTO sessions (id, agent_type, label) VALUES (?, ?, ?)`,
-  ).run(id, agentType, label ?? null);
+  db.prepare(`INSERT INTO sessions (id, agent_type, label, pid) VALUES (?, ?, ?, ?)`).run(
+    id,
+    agentType,
+    label ?? null,
+    pid ?? null,
+  );
   return id;
 }
 
@@ -164,6 +175,7 @@ export function findDisconnectedSession(
 
 export interface ResumeSessionOptions {
   label?: string;
+  pid?: number;
 }
 
 export function resumeSession(
@@ -176,9 +188,7 @@ export function resumeSession(
     throw new Error(`Session not found: ${sessionId}`);
   }
   if (session.status !== "disconnected") {
-    throw new Error(
-      `Session ${sessionId} is not disconnected (status: ${session.status})`,
-    );
+    throw new Error(`Session ${sessionId} is not disconnected (status: ${session.status})`);
   }
 
   const setClauses = ["status = 'active'", "last_seen_at = datetime('now')"];
@@ -189,28 +199,23 @@ export function resumeSession(
     params.push(opts.label);
   }
 
+  if (opts?.pid !== undefined) {
+    setClauses.push("pid = ?");
+    params.push(opts.pid);
+  }
+
   params.push(sessionId);
 
-  db.prepare(
-    `UPDATE sessions SET ${setClauses.join(", ")} WHERE id = ?`,
-  ).run(...params);
+  db.prepare(`UPDATE sessions SET ${setClauses.join(", ")} WHERE id = ?`).run(...params);
 
   return getSession(db, sessionId)!;
 }
 
-export function getSession(
-  db: Database.Database,
-  id: string,
-): Session | undefined {
-  return db.prepare(`SELECT * FROM sessions WHERE id = ?`).get(id) as
-    | Session
-    | undefined;
+export function getSession(db: Database.Database, id: string): Session | undefined {
+  return db.prepare(`SELECT * FROM sessions WHERE id = ?`).get(id) as Session | undefined;
 }
 
-export function listSessions(
-  db: Database.Database,
-  filter?: SessionFilter,
-): Session[] {
+export function listSessions(db: Database.Database, filter?: SessionFilter): Session[] {
   const clauses: string[] = [];
   const params: unknown[] = [];
 
@@ -227,18 +232,56 @@ export function listSessions(
   return db.prepare(`SELECT * FROM sessions${where}`).all(...params) as Session[];
 }
 
-export function updateSessionStatus(
-  db: Database.Database,
-  id: string,
-  status: string,
-): void {
+export function updateSessionStatus(db: Database.Database, id: string, status: string): void {
   db.prepare(`UPDATE sessions SET status = ? WHERE id = ?`).run(status, id);
 }
 
 export function updateLastSeen(db: Database.Database, id: string): void {
-  db.prepare(
-    `UPDATE sessions SET last_seen_at = datetime('now') WHERE id = ?`,
-  ).run(id);
+  db.prepare(`UPDATE sessions SET last_seen_at = datetime('now') WHERE id = ?`).run(id);
+}
+
+// Sends signal 0 to check process existence without affecting it. POSIX
+// behavior: throws ESRCH if no such PID, EPERM if PID exists but we don't
+// own it. EPERM still proves the process is alive.
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (e) {
+    const code = (e as NodeJS.ErrnoException).code;
+    return code === "EPERM";
+  }
+}
+
+export function pruneStaleSessions(
+  db: Database.Database,
+  opts?: { isAlive?: (pid: number) => boolean },
+): PruneStaleSessionsResult {
+  const checkAlive = opts?.isAlive ?? isProcessAlive;
+  const rows = db
+    .prepare(`SELECT id, pid FROM sessions WHERE status != 'disconnected'`)
+    .all() as Array<{ id: string; pid: number | null }>;
+
+  let pruned = 0;
+  let keptAlive = 0;
+  let skippedNoPid = 0;
+
+  const mark = db.prepare(`UPDATE sessions SET status = 'disconnected' WHERE id = ?`);
+
+  for (const row of rows) {
+    if (row.pid === null) {
+      skippedNoPid++;
+      continue;
+    }
+    if (checkAlive(row.pid)) {
+      keptAlive++;
+      continue;
+    }
+    mark.run(row.id);
+    pruned++;
+  }
+
+  return { pruned, kept_alive: keptAlive, skipped_no_pid: skippedNoPid };
 }
 
 export interface UpdateStatusInput {
@@ -246,15 +289,12 @@ export interface UpdateStatusInput {
   tokens_used?: number;
 }
 
-export function updateStatus(
-  db: Database.Database,
-  id: string,
-  input: UpdateStatusInput,
-): Session {
+export function updateStatus(db: Database.Database, id: string, input: UpdateStatusInput): Session {
   if (input.status) {
-    db.prepare(
-      `UPDATE sessions SET status = ?, last_seen_at = datetime('now') WHERE id = ?`,
-    ).run(input.status, id);
+    db.prepare(`UPDATE sessions SET status = ?, last_seen_at = datetime('now') WHERE id = ?`).run(
+      input.status,
+      id,
+    );
   }
   if (input.tokens_used !== undefined) {
     db.prepare(
@@ -277,23 +317,22 @@ export function createTask(
   db.prepare(
     `INSERT INTO tasks (id, short_name, description, context, assigned_to, created_by)
      VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, input.short_name ?? null, input.description, input.context ?? null, input.assigned_to ?? null, sessionId);
+  ).run(
+    id,
+    input.short_name ?? null,
+    input.description,
+    input.context ?? null,
+    input.assigned_to ?? null,
+    sessionId,
+  );
   return id;
 }
 
-export function getTask(
-  db: Database.Database,
-  id: string,
-): Task | undefined {
-  return db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as
-    | Task
-    | undefined;
+export function getTask(db: Database.Database, id: string): Task | undefined {
+  return db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as Task | undefined;
 }
 
-export function listTasks(
-  db: Database.Database,
-  filter?: TaskFilter,
-): Task[] {
+export function listTasks(db: Database.Database, filter?: TaskFilter): Task[] {
   const clauses: string[] = [];
   const params: unknown[] = [];
 
@@ -314,11 +353,7 @@ export function listTasks(
   return db.prepare(`SELECT * FROM tasks${where}`).all(...params) as Task[];
 }
 
-export function claimTask(
-  db: Database.Database,
-  taskId: string,
-  sessionId: string,
-): Task {
+export function claimTask(db: Database.Database, taskId: string, sessionId: string): Task {
   const task = getTask(db, taskId);
   if (!task) {
     throw new Error(`Task not found: ${taskId}`);
@@ -357,13 +392,9 @@ export function completeTask(
   return getTask(db, taskId)!;
 }
 
-export function cleanupCompletedTasks(
-  db: Database.Database,
-): CleanupCompletedTasksResult {
+export function cleanupCompletedTasks(db: Database.Database): CleanupCompletedTasksResult {
   const terminalTasks = db
-    .prepare(
-      `SELECT id FROM tasks WHERE status IN ('done', 'reviewed', 'cancelled')`,
-    )
+    .prepare(`SELECT id FROM tasks WHERE status IN ('done', 'reviewed', 'cancelled')`)
     .all() as Array<{ id: string }>;
 
   if (terminalTasks.length === 0) {
@@ -407,9 +438,12 @@ export function requestReview(
     db.prepare(
       `UPDATE tasks SET status = 'review_requested', updated_at = datetime('now') WHERE id = ?`,
     ).run(taskId);
-    db.prepare(
-      `INSERT INTO reviews (id, task_id, reviewer, findings) VALUES (?, ?, ?, ?)`,
-    ).run(reviewId, taskId, sessionId, rubric ?? null);
+    db.prepare(`INSERT INTO reviews (id, task_id, reviewer, findings) VALUES (?, ?, ?, ?)`).run(
+      reviewId,
+      taskId,
+      sessionId,
+      rubric ?? null,
+    );
   });
   txn();
 
@@ -420,19 +454,11 @@ export function requestReview(
 // Review operations
 // ---------------------------------------------------------------------------
 
-export function getReview(
-  db: Database.Database,
-  id: string,
-): Review | undefined {
-  return db.prepare(`SELECT * FROM reviews WHERE id = ?`).get(id) as
-    | Review
-    | undefined;
+export function getReview(db: Database.Database, id: string): Review | undefined {
+  return db.prepare(`SELECT * FROM reviews WHERE id = ?`).get(id) as Review | undefined;
 }
 
-export function listReviews(
-  db: Database.Database,
-  filter?: ReviewFilter,
-): Review[] {
+export function listReviews(db: Database.Database, filter?: ReviewFilter): Review[] {
   const clauses: string[] = [];
   const params: unknown[] = [];
 
@@ -464,9 +490,12 @@ export function submitReview(
   }
 
   const txn = db.transaction(() => {
-    db.prepare(
-      `UPDATE reviews SET verdict = ?, findings = ?, reviewer = ? WHERE id = ?`,
-    ).run(input.verdict, input.findings, sessionId, reviewId);
+    db.prepare(`UPDATE reviews SET verdict = ?, findings = ?, reviewer = ? WHERE id = ?`).run(
+      input.verdict,
+      input.findings,
+      sessionId,
+      reviewId,
+    );
     db.prepare(
       `UPDATE tasks SET status = 'reviewed', updated_at = datetime('now') WHERE id = ?`,
     ).run(review.task_id);
@@ -476,15 +505,8 @@ export function submitReview(
   return getReview(db, reviewId)!;
 }
 
-export function respondToReview(
-  db: Database.Database,
-  reviewId: string,
-  response: string,
-): Review {
-  db.prepare(`UPDATE reviews SET response = ? WHERE id = ?`).run(
-    response,
-    reviewId,
-  );
+export function respondToReview(db: Database.Database, reviewId: string, response: string): Review {
+  db.prepare(`UPDATE reviews SET response = ? WHERE id = ?`).run(response, reviewId);
   return getReview(db, reviewId)!;
 }
 
@@ -499,16 +521,16 @@ export function postMessage(
 ): string {
   const id = crypto.randomUUID();
   const channel = input.channel ?? "general";
-  db.prepare(
-    `INSERT INTO messages (id, channel, author, content) VALUES (?, ?, ?, ?)`,
-  ).run(id, channel, sessionId, input.content);
+  db.prepare(`INSERT INTO messages (id, channel, author, content) VALUES (?, ?, ?, ?)`).run(
+    id,
+    channel,
+    sessionId,
+    input.content,
+  );
   return id;
 }
 
-export function readMessages(
-  db: Database.Database,
-  filter?: MessageFilter,
-): Message[] {
+export function readMessages(db: Database.Database, filter?: MessageFilter): Message[] {
   const clauses: string[] = [];
   const params: unknown[] = [];
 
@@ -536,10 +558,7 @@ export function readMessages(
 // Context aggregation
 // ---------------------------------------------------------------------------
 
-export function getTaskContext(
-  db: Database.Database,
-  taskId: string,
-): TaskContext {
+export function getTaskContext(db: Database.Database, taskId: string): TaskContext {
   const task = getTask(db, taskId);
   if (!task) {
     throw new Error(`Task not found: ${taskId}`);
