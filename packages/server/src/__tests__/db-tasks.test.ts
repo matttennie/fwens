@@ -115,6 +115,39 @@ describe("claimTask", () => {
       "Task not found",
     );
   });
+
+  it("refuses to claim a task assigned to another active session", () => {
+    const other = createSession(db, "gemini");
+    const taskId = createTask(db, sessionId, {
+      description: "Owned by other",
+      assigned_to: other,
+    });
+    expect(() => claimTask(db, taskId, sessionId)).toThrow("assigned to another active session");
+  });
+
+  it("allows claiming a task assigned to a disconnected session (reassignment)", () => {
+    const ghost = createSession(db, "gemini");
+    const taskId = createTask(db, sessionId, {
+      description: "Stranded by crash",
+      assigned_to: ghost,
+    });
+    db.prepare(`UPDATE sessions SET status = 'disconnected' WHERE id = ?`).run(ghost);
+
+    const claimed = claimTask(db, taskId, sessionId);
+    expect(claimed.assigned_to).toBe(sessionId);
+    expect(claimed.status).toBe("in_progress");
+  });
+
+  it("atomic claim: a second claimer fails when the first already won", () => {
+    // Same-process simulation of the multi-process race. The first claim
+    // changes the row; the second call must see no rows match and throw.
+    const a = createSession(db, "claude", "a");
+    const b = createSession(db, "gemini", "b");
+    const taskId = createTask(db, sessionId, { description: "race" });
+
+    claimTask(db, taskId, a);
+    expect(() => claimTask(db, taskId, b)).toThrow("is not open");
+  });
 });
 
 describe("completeTask", () => {
@@ -140,6 +173,39 @@ describe("completeTask", () => {
       summary: "Done without artifacts",
     });
     expect(completed.artifacts).toBeNull();
+  });
+
+  it("refuses to complete an open task (not yet claimed)", () => {
+    const taskId = createTask(db, sessionId, { description: "still open" });
+    expect(() => completeTask(db, taskId, sessionId, { summary: "x" })).toThrow(
+      "cannot be completed from status 'open'",
+    );
+  });
+
+  it("refuses to complete a task that is not yours and not yours to manage", () => {
+    const other = createSession(db, "gemini");
+    const taskId = createTask(db, sessionId, {
+      description: "owned by other",
+      assigned_to: other,
+    });
+    claimTask(db, taskId, other);
+
+    const stranger = createSession(db, "codex");
+    expect(() => completeTask(db, taskId, stranger, { summary: "not mine" })).toThrow(
+      "can only be completed by its assignee or creator",
+    );
+  });
+
+  it("allows the creator to complete (even if not the assignee)", () => {
+    const worker = createSession(db, "gemini");
+    const taskId = createTask(db, sessionId, {
+      description: "creator can rescue",
+      assigned_to: worker,
+    });
+    claimTask(db, taskId, worker);
+
+    const completed = completeTask(db, taskId, sessionId, { summary: "rescued" });
+    expect(completed.status).toBe("done");
   });
 });
 
@@ -220,6 +286,8 @@ describe("cleanupCompletedTasks", () => {
 describe("requestReview", () => {
   it("sets task to review_requested and creates a review", () => {
     const taskId = createTask(db, sessionId, { description: "Review me" });
+    claimTask(db, taskId, sessionId);
+    completeTask(db, taskId, sessionId, { summary: "ready" });
     const reviewId = requestReview(db, taskId, sessionId, "check quality");
 
     const task = getTask(db, taskId);
@@ -235,6 +303,8 @@ describe("requestReview", () => {
 
   it("creates review without rubric", () => {
     const taskId = createTask(db, sessionId, { description: "Review me" });
+    claimTask(db, taskId, sessionId);
+    completeTask(db, taskId, sessionId, { summary: "ready" });
     const reviewId = requestReview(db, taskId, sessionId);
     const review = getReview(db, reviewId);
     expect(review!.findings).toBeNull();

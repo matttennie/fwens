@@ -461,19 +461,45 @@ export function listTasks(db: Database.Database, filter?: TaskFilter): Task[] {
   return db.prepare(`SELECT * FROM tasks${where}`).all(...params) as Task[];
 }
 
+// Atomic conditional claim. Two processes calling claimTask on the same row
+// can no longer both succeed: the UPDATE's WHERE clause is the lock. If 0
+// rows change, the caller couldn't claim and we explain why precisely.
+//
+// Reassignment rule: a task assigned to a disconnected session may be
+// claimed by anyone (otherwise tasks strand when their owner crashes).
 export function claimTask(db: Database.Database, taskId: string, sessionId: string): Task {
   const task = getTask(db, taskId);
   if (!task) {
     throw new Error(`Task not found: ${taskId}`);
   }
-  if (task.status !== "open") {
-    throw new Error(`Task ${taskId} is not open (status: ${task.status})`);
-  }
 
   const txn = db.transaction(() => {
-    db.prepare(
-      `UPDATE tasks SET status = 'in_progress', assigned_to = ?, updated_at = datetime('now') WHERE id = ?`,
-    ).run(sessionId, taskId);
+    const result = db
+      .prepare(
+        `UPDATE tasks
+            SET status = 'in_progress',
+                assigned_to = ?,
+                updated_at = datetime('now')
+          WHERE id = ?
+            AND status = 'open'
+            AND (
+              assigned_to IS NULL
+              OR assigned_to = ?
+              OR assigned_to IN (SELECT id FROM sessions WHERE status = 'disconnected')
+            )`,
+      )
+      .run(sessionId, taskId, sessionId);
+
+    if (result.changes === 0) {
+      // Distinguish the failure modes for a useful error message.
+      if (task.status !== "open") {
+        throw new Error(`Task ${taskId} is not open (status: ${task.status})`);
+      }
+      throw new Error(
+        `Task ${taskId} is assigned to another active session (${task.assigned_to})`,
+      );
+    }
+
     db.prepare(`UPDATE sessions SET status = 'busy' WHERE id = ?`).run(sessionId);
   });
   txn();
@@ -481,18 +507,47 @@ export function claimTask(db: Database.Database, taskId: string, sessionId: stri
   return getTask(db, taskId)!;
 }
 
+// Atomic conditional completion. Only the assignee or original creator can
+// complete a task, and only while it's in a state where completion makes
+// sense (in_progress or review_requested).
 export function completeTask(
   db: Database.Database,
   taskId: string,
   sessionId: string,
   input: CompleteTaskInput,
 ): Task {
+  const task = getTask(db, taskId);
+  if (!task) {
+    throw new Error(`Task not found: ${taskId}`);
+  }
+
   const artifacts = input.artifacts ? JSON.stringify(input.artifacts) : null;
 
   const txn = db.transaction(() => {
-    db.prepare(
-      `UPDATE tasks SET status = 'done', summary = ?, artifacts = ?, updated_at = datetime('now') WHERE id = ?`,
-    ).run(input.summary, artifacts, taskId);
+    const result = db
+      .prepare(
+        `UPDATE tasks
+            SET status = 'done',
+                summary = ?,
+                artifacts = ?,
+                updated_at = datetime('now')
+          WHERE id = ?
+            AND status IN ('in_progress', 'review_requested')
+            AND (assigned_to = ? OR created_by = ?)`,
+      )
+      .run(input.summary, artifacts, taskId, sessionId, sessionId);
+
+    if (result.changes === 0) {
+      if (!["in_progress", "review_requested"].includes(task.status)) {
+        throw new Error(
+          `Task ${taskId} cannot be completed from status '${task.status}' (must be in_progress or review_requested)`,
+        );
+      }
+      throw new Error(
+        `Task ${taskId} can only be completed by its assignee or creator`,
+      );
+    }
+
     db.prepare(`UPDATE sessions SET status = 'idle' WHERE id = ?`).run(sessionId);
   });
   txn();
@@ -540,6 +595,16 @@ export function requestReview(
   sessionId: string,
   rubric?: string,
 ): string {
+  const task = getTask(db, taskId);
+  if (!task) {
+    throw new Error(`Task not found: ${taskId}`);
+  }
+  if (task.status !== "done") {
+    throw new Error(
+      `Cannot request review on task ${taskId} (status: ${task.status}); task must be 'done' first`,
+    );
+  }
+
   const reviewId = crypto.randomUUID();
 
   const txn = db.transaction(() => {
@@ -597,6 +662,10 @@ export function submitReview(
     throw new Error(`Review not found: ${reviewId}`);
   }
 
+  // needs_changes sends the task back to the worker for fixes, not into the
+  // 'reviewed' terminal state. pass/fail are terminal verdicts.
+  const nextTaskStatus = input.verdict === "needs_changes" ? "in_progress" : "reviewed";
+
   const txn = db.transaction(() => {
     db.prepare(`UPDATE reviews SET verdict = ?, findings = ?, reviewer = ? WHERE id = ?`).run(
       input.verdict,
@@ -604,9 +673,10 @@ export function submitReview(
       sessionId,
       reviewId,
     );
-    db.prepare(
-      `UPDATE tasks SET status = 'reviewed', updated_at = datetime('now') WHERE id = ?`,
-    ).run(review.task_id);
+    db.prepare(`UPDATE tasks SET status = ?, updated_at = datetime('now') WHERE id = ?`).run(
+      nextTaskStatus,
+      review.task_id,
+    );
   });
   txn();
 

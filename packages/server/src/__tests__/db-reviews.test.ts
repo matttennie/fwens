@@ -2,6 +2,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import Database from "better-sqlite3";
 import { initializeDb } from "../schema.js";
 import {
+  claimTask,
+  completeTask,
   createSession,
   createTask,
   requestReview,
@@ -24,6 +26,10 @@ beforeEach(() => {
   sessionId = createSession(db, "claude", "author");
   reviewerId = createSession(db, "gemini", "reviewer");
   taskId = createTask(db, sessionId, { description: "Task to review" });
+  // Walk the task through the proper lifecycle before requesting review —
+  // requestReview now requires status='done'.
+  claimTask(db, taskId, sessionId);
+  completeTask(db, taskId, sessionId, { summary: "ready for review" });
   reviewId = requestReview(db, taskId, sessionId);
 });
 
@@ -68,6 +74,8 @@ describe("listReviews", () => {
 
   beforeEach(() => {
     taskId2 = createTask(db, sessionId, { description: "Another task" });
+    claimTask(db, taskId2, sessionId);
+    completeTask(db, taskId2, sessionId, { summary: "also ready" });
     reviewId2 = requestReview(db, taskId2, sessionId);
   });
 
@@ -99,5 +107,48 @@ describe("listReviews", () => {
     const mine = listReviews(db, { mine: reviewerId });
     expect(mine).toHaveLength(1);
     expect(mine[0].id).toBe(reviewId);
+  });
+});
+
+describe("submitReview — verdict routing (state machine)", () => {
+  it("verdict='pass' moves task to 'reviewed'", () => {
+    submitReview(db, reviewId, reviewerId, { verdict: "pass", findings: "ok" });
+    expect(getTask(db, taskId)!.status).toBe("reviewed");
+  });
+
+  it("verdict='fail' moves task to 'reviewed'", () => {
+    submitReview(db, reviewId, reviewerId, { verdict: "fail", findings: "wrong" });
+    expect(getTask(db, taskId)!.status).toBe("reviewed");
+  });
+
+  it("verdict='needs_changes' sends task back to 'in_progress', NOT 'reviewed'", () => {
+    submitReview(db, reviewId, reviewerId, {
+      verdict: "needs_changes",
+      findings: "fix the edge case",
+    });
+    const task = getTask(db, taskId)!;
+    expect(task.status).toBe("in_progress");
+    expect(task.status).not.toBe("reviewed");
+  });
+});
+
+describe("requestReview — lifecycle precondition", () => {
+  it("throws when called on an open task", () => {
+    const openTaskId = createTask(db, sessionId, { description: "still open" });
+    expect(() => requestReview(db, openTaskId, sessionId)).toThrow(
+      "task must be 'done' first",
+    );
+  });
+
+  it("throws when called on an in_progress task", () => {
+    const t = createTask(db, sessionId, { description: "in flight" });
+    claimTask(db, t, sessionId);
+    expect(() => requestReview(db, t, sessionId)).toThrow("task must be 'done' first");
+  });
+
+  it("throws when task does not exist", () => {
+    expect(() => requestReview(db, "00000000-0000-0000-0000-000000000000", sessionId)).toThrow(
+      "Task not found",
+    );
   });
 });

@@ -100,7 +100,9 @@ describe("full workflow: create -> claim -> complete -> review -> respond", () =
     expect(review.findings).toBe("Missing error handling in edge case");
 
     task = getTask(db, taskId)!;
-    expect(task.status).toBe("reviewed");
+    // needs_changes sends the task back to in_progress, not to a terminal
+    // 'reviewed' state.
+    expect(task.status).toBe("in_progress");
 
     // Step 9: Gemini responds to the review
     const updatedReview = respondToReview(db, reviewId, "Added error handling for the edge case");
@@ -110,7 +112,7 @@ describe("full workflow: create -> claim -> complete -> review -> respond", () =
     const ctx = getTaskContext(db, taskId);
 
     expect(ctx.task.id).toBe(taskId);
-    expect(ctx.task.status).toBe("reviewed");
+    expect(ctx.task.status).toBe("in_progress");
 
     expect(ctx.reviews).toHaveLength(1);
     expect(ctx.reviews[0].verdict).toBe("needs_changes");
