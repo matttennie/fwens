@@ -103,14 +103,8 @@ describe("full workflow: create -> claim -> complete -> review -> respond", () =
     expect(task.status).toBe("reviewed");
 
     // Step 9: Gemini responds to the review
-    const updatedReview = respondToReview(
-      db,
-      reviewId,
-      "Added error handling for the edge case",
-    );
-    expect(updatedReview.response).toBe(
-      "Added error handling for the edge case",
-    );
+    const updatedReview = respondToReview(db, reviewId, "Added error handling for the edge case");
+    expect(updatedReview.response).toBe("Added error handling for the edge case");
 
     // Step 10: getTaskContext returns full context
     const ctx = getTaskContext(db, taskId);
@@ -120,12 +114,8 @@ describe("full workflow: create -> claim -> complete -> review -> respond", () =
 
     expect(ctx.reviews).toHaveLength(1);
     expect(ctx.reviews[0].verdict).toBe("needs_changes");
-    expect(ctx.reviews[0].findings).toBe(
-      "Missing error handling in edge case",
-    );
-    expect(ctx.reviews[0].response).toBe(
-      "Added error handling for the edge case",
-    );
+    expect(ctx.reviews[0].findings).toBe("Missing error handling in edge case");
+    expect(ctx.reviews[0].response).toBe("Added error handling for the edge case");
 
     expect(ctx.messages).toHaveLength(1);
     expect(ctx.messages[0].content).toBe("Please prioritize this task");

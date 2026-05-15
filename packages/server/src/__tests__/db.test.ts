@@ -40,9 +40,15 @@ describe("initializeDb", () => {
       expect(row[0].journal_mode).toBe("wal");
       fileDb.close();
     } finally {
-      try { fs.unlinkSync(tmpFile); } catch {}
-      try { fs.unlinkSync(tmpFile + "-wal"); } catch {}
-      try { fs.unlinkSync(tmpFile + "-shm"); } catch {}
+      try {
+        fs.unlinkSync(tmpFile);
+      } catch {}
+      try {
+        fs.unlinkSync(tmpFile + "-wal");
+      } catch {}
+      try {
+        fs.unlinkSync(tmpFile + "-shm");
+      } catch {}
     }
   });
 });

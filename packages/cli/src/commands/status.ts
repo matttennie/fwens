@@ -20,9 +20,7 @@ export function runStatus(projectDir: string): void {
 
     // Pending review count
     const pendingReviews = db
-      .prepare(
-        "SELECT COUNT(*) as count FROM reviews WHERE verdict IS NULL"
-      )
+      .prepare("SELECT COUNT(*) as count FROM reviews WHERE verdict IS NULL")
       .get() as { count: number };
 
     console.log(`\n=== Pending Reviews ===`);
@@ -30,9 +28,7 @@ export function runStatus(projectDir: string): void {
 
     // Active sessions
     const activeSessions = db
-      .prepare(
-        "SELECT id, agent_type, label, status FROM sessions WHERE status != 'disconnected'"
-      )
+      .prepare("SELECT id, agent_type, label, status FROM sessions WHERE status != 'disconnected'")
       .all() as Array<{
       id: string;
       agent_type: string;

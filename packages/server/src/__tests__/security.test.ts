@@ -1,18 +1,8 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Database from "better-sqlite3";
 import { initializeDb } from "../schema.js";
-import {
-  createSession,
-  createTask,
-  getTask,
-  postMessage,
-  readMessages,
-} from "../db.js";
-import {
-  validateUuid,
-  validatePath,
-  validateStringLength,
-} from "../validation.js";
+import { createSession, createTask, getTask, postMessage, readMessages } from "../db.js";
+import { validateUuid, validatePath, validateStringLength } from "../validation.js";
 
 let db: InstanceType<typeof Database>;
 let sessionId: string;
@@ -33,9 +23,7 @@ describe("SQL injection prevention", () => {
     const taskId = createTask(db, sessionId, { description: malicious });
 
     // The tasks table must still exist and contain the row
-    const count = db
-      .prepare("SELECT COUNT(*) AS cnt FROM tasks")
-      .get() as { cnt: number };
+    const count = db.prepare("SELECT COUNT(*) AS cnt FROM tasks").get() as { cnt: number };
     expect(count.cnt).toBeGreaterThanOrEqual(1);
 
     const task = getTask(db, taskId);
@@ -48,9 +36,7 @@ describe("SQL injection prevention", () => {
     const msgId = postMessage(db, sessionId, { content: malicious });
 
     // The messages table must still exist
-    const count = db
-      .prepare("SELECT COUNT(*) AS cnt FROM messages")
-      .get() as { cnt: number };
+    const count = db.prepare("SELECT COUNT(*) AS cnt FROM messages").get() as { cnt: number };
     expect(count.cnt).toBeGreaterThanOrEqual(1);
 
     const messages = readMessages(db);
@@ -69,9 +55,7 @@ describe("SQL injection prevention", () => {
     });
 
     it("rejects UNION SELECT in UUID position", () => {
-      expect(() => validateUuid("1 UNION SELECT * FROM sessions")).toThrow(
-        "Invalid UUID",
-      );
+      expect(() => validateUuid("1 UNION SELECT * FROM sessions")).toThrow("Invalid UUID");
     });
   });
 });
@@ -84,15 +68,11 @@ describe("path traversal prevention", () => {
   const projectRoot = "/project";
 
   it("blocks ../../etc/passwd traversal", () => {
-    expect(() => validatePath("../../etc/passwd", projectRoot)).toThrow(
-      "Path traversal detected",
-    );
+    expect(() => validatePath("../../etc/passwd", projectRoot)).toThrow("Path traversal detected");
   });
 
   it("blocks absolute /etc/shadow outside project", () => {
-    expect(() => validatePath("/etc/shadow", projectRoot)).toThrow(
-      "Path traversal detected",
-    );
+    expect(() => validatePath("/etc/shadow", projectRoot)).toThrow("Path traversal detected");
   });
 
   it("allows a legitimate nested path within the project", () => {
@@ -108,16 +88,16 @@ describe("path traversal prevention", () => {
 describe("input length enforcement", () => {
   it("rejects a string of 10,001 chars against a 10,000 limit", () => {
     const oversized = "x".repeat(10_001);
-    expect(() =>
-      validateStringLength(oversized, 10_000, "description"),
-    ).toThrow("exceeds maximum length of 10000");
+    expect(() => validateStringLength(oversized, 10_000, "description")).toThrow(
+      "exceeds maximum length of 10000",
+    );
   });
 
   it("rejects a string of 50,001 chars against a 50,000 limit", () => {
     const oversized = "x".repeat(50_001);
-    expect(() =>
-      validateStringLength(oversized, 50_000, "content"),
-    ).toThrow("exceeds maximum length of 50000");
+    expect(() => validateStringLength(oversized, 50_000, "content")).toThrow(
+      "exceeds maximum length of 50000",
+    );
   });
 
   it("accepts a string of exactly 10,000 chars", () => {

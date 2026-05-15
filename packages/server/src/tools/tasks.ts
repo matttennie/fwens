@@ -10,14 +10,16 @@ import {
   completeTask,
   cleanupCompletedTasks,
 } from "../db.js";
-import {
-  validateUuid,
-  validatePath,
-  validateStringLength,
-  validateEnum,
-} from "../validation.js";
+import { validateUuid, validatePath, validateStringLength, validateEnum } from "../validation.js";
 
-const TASK_STATUSES = ["open", "in_progress", "done", "review_requested", "reviewed", "cancelled"] as const;
+const TASK_STATUSES = [
+  "open",
+  "in_progress",
+  "done",
+  "review_requested",
+  "reviewed",
+  "cancelled",
+] as const;
 
 export function handleCreateTask(
   db: Database.Database,
@@ -66,11 +68,7 @@ export function handleListTasks(
   return listTasks(db, filter);
 }
 
-export function handleClaimTask(
-  db: Database.Database,
-  sessionId: string,
-  taskId: string,
-): Task {
+export function handleClaimTask(db: Database.Database, sessionId: string, taskId: string): Task {
   validateUuid(taskId);
   return claimTask(db, taskId, sessionId);
 }
@@ -96,8 +94,10 @@ export function handleCompleteTask(
   return completeTask(db, args.task_id, sessionId, input);
 }
 
-export function handleCleanupCompletedTasks(
-  db: Database.Database,
-): { deleted_tasks: number; deleted_reviews: number; deleted_messages: number } {
+export function handleCleanupCompletedTasks(db: Database.Database): {
+  deleted_tasks: number;
+  deleted_reviews: number;
+  deleted_messages: number;
+} {
   return cleanupCompletedTasks(db);
 }

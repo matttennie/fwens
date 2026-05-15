@@ -47,13 +47,12 @@ function getState(db: Database.Database) {
   const agentTypes = sessions.map((s) => s.agent_type);
   const typePlaceholders = agentTypes.map(() => "?").join(",");
 
-  const allAgentSessionIds = agentTypes.length > 0
-    ? (db
-        .prepare(
-          `SELECT id, agent_type FROM sessions WHERE agent_type IN (${typePlaceholders})`,
-        )
-        .all(...agentTypes) as { id: string; agent_type: string }[])
-    : [];
+  const allAgentSessionIds =
+    agentTypes.length > 0
+      ? (db
+          .prepare(`SELECT id, agent_type FROM sessions WHERE agent_type IN (${typePlaceholders})`)
+          .all(...agentTypes) as { id: string; agent_type: string }[])
+      : [];
 
   // Map old session IDs to current session ID for that agent type
   const currentSessionByType = new Map(sessions.map((s) => [s.agent_type, s.id]));
@@ -88,9 +87,7 @@ function getState(db: Database.Database) {
     assigned_to: t.assigned_to ? (sessionIdToCurrentId.get(t.assigned_to) ?? t.assigned_to) : null,
   }));
 
-  const reviews = db
-    .prepare("SELECT id, task_id, verdict FROM reviews")
-    .all() as ReviewRow[];
+  const reviews = db.prepare("SELECT id, task_id, verdict FROM reviews").all() as ReviewRow[];
 
   return { sessions, tasks, reviews };
 }

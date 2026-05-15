@@ -1,53 +1,78 @@
-# fwens Agent — {{AGENT_TYPE}}
+# fwens Coordination
 
-You are connected to fwens, a shared coordination system. Other agents may also be connected. Each agent has its own MCP server process, but all share the same `.fwens/fwens.db` database — that's how you coordinate.
+This project uses fwens for multi-agent coordination. fwens is active whenever the `fwens` MCP tools are available.
 
-## Session startup
+## Session Startup
 
-At the start of every new agent session, check fwens without waiting for the human to say "find fwens":
+At the start of every new agent session, run this immediately — do not wait for the human:
 
-1. `cleanup_completed_tasks` — remove terminal completed tasks from previous sessions while preserving open, in-progress, and review-requested work
-2. `whoami` — confirm you're connected, note your session ID
-3. `set_label("{{AGENT_LABEL}}")` — if not already set
-4. `list_tasks(assigned_to: <your session ID>, status: "open")` — work for you
-5. `list_reviews(pending: true)` — reviews waiting
-6. If assigned open tasks exist, you MUST immediately call `claim_task` for one task and begin work. Do not ask the human whether to claim or begin. Pick the highest-priority task from the task description or general-channel messages; if priority is unclear, pick the oldest assigned open task. Execute it end to end. After completing, `complete_task` with summary + artifact paths, then `request_review`.
-7. If reviews found → `get_context` for details, examine the actual work, `submit_review` with verdict and findings.
-8. If no assigned tasks or reviews exist, `list_tasks(status: "open")` and claim suitable unassigned work only when it is clearly safe.
+1. `cleanup_completed_tasks` — remove terminal tasks from previous sessions.
+2. `whoami` — note your session ID.
+3. `set_label` — use a short label based on your CLI and role, such as `codex-worker`, `claude-worker`, `gemini-worker`, or `opencode-worker`.
+4. `list_tasks(assigned_to: <your session ID>, status: "open")` — check for assigned work.
+5. `list_reviews(pending: true)` — check for pending reviews.
+6. **If tasks are assigned to you** — `claim_task` and execute immediately. Pick the highest-priority task from the task description or general-channel messages; if priority is unclear, pick the oldest assigned open task. See "Executing Work" below.
+7. **If reviews are pending** — `get_context`, inspect the artifacts, `submit_review` with verdict and findings. After submitting, post the review findings to the general channel with `post_message(channel: "general")` so all agents and the human can reference them from one place.
+8. **If neither** — `list_tasks(status: "open")` to find unassigned tasks. You may only claim tasks that are either assigned directly to you or have no assignment (`assigned_to` is null). Never claim a task assigned to another agent.
 
-Do not stop after reporting that fwens exists. Do not ask for permission to start assigned work. Find actionable work, claim it, execute it, and update fwens.
+## "find fwens"
+
+When the human says "find fwens" (or "check fwens", "fwens status", etc.), run the same startup sequence above. This is a trigger to poll for work — treat it as an instruction to find actionable work and do it.
+
+After running the startup check, also look for orphaned work:
+- `list_tasks(status: "open")` — any unassigned open tasks are fair game. Claim and execute, but never claim a task assigned to another agent.
+- `list_tasks(status: "in_progress")` — check if any in-progress tasks are assigned to disconnected sessions (stale work). If so, report them to the human.
+
+## Executing Work
+
+When you find a task to execute:
+
+1. `claim_task(task_id)` — this marks it in-progress and assigns it to you.
+2. Read the task description and context. Execute the work end to end.
+3. `complete_task(task_id, summary, artifacts)` — mark it done with a summary and file paths.
+4. `request_review(task_id)` — only if the task description or the human explicitly asks for a review.
+5. If you need to create follow-on tasks while executing, always include a `short_name` (2-4 words) for dashboard display.
+6. Check for more work: `list_tasks(assigned_to: <your session ID>, status: "open")`.
+
+## CRITICAL: No Confirmation Required
+
+Claiming and executing fwens tasks is pre-approved operational work. The human created these tasks specifically for agents to execute autonomously.
+
+**DO NOT** do any of the following:
+- Ask "Should I start working on this task?" — just start.
+- Ask "Would you like me to claim this?" — just claim it.
+- Present a plan and wait for approval before executing.
+- Say "I found N tasks" and then stop — find them AND do them.
+- Ask "Which task should I work on first?" — pick the oldest open one.
+- Report that fwens exists without checking for work.
+- Wait for the human to say "go ahead" or "yes" or "proceed".
+
+The correct behavior is: discover work -> claim it -> execute it -> complete it -> report what you did.
 
 ## "make fwens"
 
 When the human says "make fwens" (or similar), set up the coordination board:
 
-1. `whoami` — confirm you're connected, note your session ID
-2. `set_label("{{AGENT_LABEL}}")`
-3. `list_sessions` — see who else is connected
-4. Before creating new tasks, check unfinished work from previous sessions with `list_tasks(status: "open")`, `list_tasks(status: "in_progress")`, and `list_tasks(status: "review_requested")`
-5. If unfinished tasks exist, print a concise list with task ID, status, assignee, and short name. Ask the human whether to reassign, keep, or cancel them. Do not reassign or overwrite unfinished tasks without explicit human confirmation.
-6. Ask the human what work needs to be done, or use the context they've already given you
-7. `create_task` for each piece of work, `assigned_to` = target session ID
-8. `post_message(channel: "general")` summarizing what you assigned
+1. `whoami` and `set_label`.
+2. `list_sessions` — see who else is connected.
+3. Check for unfinished work: `list_tasks(status: "open")`, `list_tasks(status: "in_progress")`, `list_tasks(status: "review_requested")`.
+4. If unfinished tasks exist, print a concise list (task ID, status, assignee, short name). Ask the human whether to reassign, keep, or cancel. Do not overwrite unfinished tasks without human confirmation.
+5. Create tasks based on the context the human has already given you. Only ask what work needs to be done if no context was provided.
+6. `create_task` for each piece of work, `assigned_to` = target session ID. Always include a `short_name` (2-4 words) for dashboard display.
+7. Never assign tasks to different agents that touch the same files. If two tasks both need to edit a file, assign them to the same agent.
+8. `post_message(channel: "general")` summarizing assignments.
 
 If no other agents are connected yet, create the tasks unassigned. They can be claimed later.
 
-## "find fwens"
+## Session Resume
 
-When the human says "find fwens" (or similar), run the same startup check again:
+If `FWENS_RESUME_LABEL` is set in the MCP server config, your session will automatically reconnect to the most recent disconnected session with that label (and matching agent_type). This means your session ID, task assignments, messages, and reviews carry over across restarts. You do not need to do anything special — `whoami` will return the same session ID as before.
 
-1. `whoami` — note your session ID
-2. `cleanup_completed_tasks` — remove terminal completed tasks from previous sessions while preserving unfinished work
-3. `set_label("{{AGENT_LABEL}}")` — if not already set
-4. `list_tasks(assigned_to: <your session ID>, status: "open")` — work for you
-5. `list_reviews(pending: true)` — reviews waiting
-6. If tasks found → `claim_task` and execute each one. After completing, `complete_task` with summary + artifact paths, then `request_review`.
-7. If reviews found → `get_context` for details, examine the actual work, `submit_review` with verdict and findings.
-8. Report what you did back to the human.
+The shared fwens database for this project is at `{{FWENS_DB_PATH}}`.
 
 ## Tools
 
-Sessions: `whoami`, `list_sessions`, `set_label`
+Sessions: `whoami`, `list_sessions`, `set_label`, `update_status`
 Tasks: `create_task`, `list_tasks`, `claim_task`, `complete_task`, `cleanup_completed_tasks`
 Reviews: `request_review`, `list_reviews`, `submit_review`, `respond_to_review`
 Messages: `post_message`, `read_messages`

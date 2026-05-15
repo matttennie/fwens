@@ -61,9 +61,9 @@ describe("findDisconnectedSession", () => {
     const old = createSession(db, "claude", "claude-main");
     updateSessionStatus(db, old, "disconnected");
     // Force an earlier last_seen_at
-    db.prepare(
-      `UPDATE sessions SET last_seen_at = datetime('now', '-1 hour') WHERE id = ?`,
-    ).run(old);
+    db.prepare(`UPDATE sessions SET last_seen_at = datetime('now', '-1 hour') WHERE id = ?`).run(
+      old,
+    );
 
     const recent = createSession(db, "claude", "claude-main");
     updateSessionStatus(db, recent, "disconnected");
@@ -218,9 +218,7 @@ describe("resumeSession", () => {
   it("updates last_seen_at to now", () => {
     const id = createSession(db, "claude", "claude-main");
     // Force old last_seen_at
-    db.prepare(
-      `UPDATE sessions SET last_seen_at = datetime('now', '-1 day') WHERE id = ?`,
-    ).run(id);
+    db.prepare(`UPDATE sessions SET last_seen_at = datetime('now', '-1 day') WHERE id = ?`).run(id);
     updateSessionStatus(db, id, "disconnected");
 
     const before = getSession(db, id)!.last_seen_at;
@@ -246,9 +244,7 @@ describe("resumeSession", () => {
   });
 
   it("throws when session does not exist", () => {
-    expect(() =>
-      resumeSession(db, "00000000-0000-0000-0000-000000000000"),
-    ).toThrow(/not found/i);
+    expect(() => resumeSession(db, "00000000-0000-0000-0000-000000000000")).toThrow(/not found/i);
   });
 
   it("throws when session is not disconnected", () => {
@@ -523,9 +519,9 @@ describe("label matching edge cases", () => {
   it("label-only search (no agent_type) returns most recent regardless of type", () => {
     const claudeId = createSession(db, "claude", "shared-label");
     updateSessionStatus(db, claudeId, "disconnected");
-    db.prepare(
-      `UPDATE sessions SET last_seen_at = datetime('now', '-1 hour') WHERE id = ?`,
-    ).run(claudeId);
+    db.prepare(`UPDATE sessions SET last_seen_at = datetime('now', '-1 hour') WHERE id = ?`).run(
+      claudeId,
+    );
 
     const geminiId = createSession(db, "gemini", "shared-label");
     updateSessionStatus(db, geminiId, "disconnected");

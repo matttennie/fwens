@@ -8,11 +8,7 @@ import {
   submitReview,
   respondToReview,
 } from "../db.js";
-import {
-  validateUuid,
-  validateStringLength,
-  validateEnum,
-} from "../validation.js";
+import { validateUuid, validateStringLength, validateEnum } from "../validation.js";
 
 const VERDICTS = ["pass", "fail", "needs_changes"] as const;
 

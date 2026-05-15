@@ -1,11 +1,7 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import Database from "better-sqlite3";
 import { initializeDb } from "../schema.js";
-import {
-  createSession,
-  postMessage,
-  readMessages,
-} from "../db.js";
+import { createSession, postMessage, readMessages } from "../db.js";
 
 let db: InstanceType<typeof Database>;
 let sessionId: string;

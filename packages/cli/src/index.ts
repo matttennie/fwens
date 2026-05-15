@@ -9,13 +9,11 @@ import { runMessages } from "./commands/messages.js";
 import { runSessions } from "./commands/sessions.js";
 import { runSeed } from "./commands/seed.js";
 import { runWatch } from "./commands/watch.js";
+import { runStart } from "./commands/start.js";
 
 const program = new Command();
 
-program
-  .name("fwens")
-  .description("CLI for inspecting fwens project state")
-  .version("0.1.0");
+program.name("fwens").description("CLI for inspecting fwens project state").version("0.1.0");
 
 program
   .command("init")
@@ -84,6 +82,14 @@ program
   .option("--poll <ms>", "poll interval in milliseconds", "1500")
   .action((dir: string, opts: { poll: string }) => {
     runWatch(path.resolve(dir), parseInt(opts.poll, 10));
+  });
+
+program
+  .command("start")
+  .description("Launch an agent CLI with fwens startup prompt (claude, gemini, codex, opencode)")
+  .argument("<agent>", "agent to start: claude, gemini, codex, opencode")
+  .action((agent: string) => {
+    runStart(agent);
   });
 
 program.parse();
