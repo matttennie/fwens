@@ -252,8 +252,16 @@ export function updateSessionStatus(db: Database.Database, id: string, status: s
   db.prepare(`UPDATE sessions SET status = ? WHERE id = ?`).run(status, id);
 }
 
+// Guarded: only bumps last_seen_at for sessions that are still in an
+// active-ish state. Prevents a heartbeat from a still-running MCP process
+// resurrecting a session that was pruned to 'disconnected' (cosmetic in
+// the prune query — which already filters by status — but confusing UX in
+// list_sessions output).
 export function updateLastSeen(db: Database.Database, id: string): void {
-  db.prepare(`UPDATE sessions SET last_seen_at = datetime('now') WHERE id = ?`).run(id);
+  db.prepare(
+    `UPDATE sessions SET last_seen_at = datetime('now')
+       WHERE id = ? AND status IN ('active','idle','busy','stuck')`,
+  ).run(id);
 }
 
 // Sends signal 0 to check process existence without affecting it. Explicit
@@ -458,7 +466,9 @@ export function listTasks(db: Database.Database, filter?: TaskFilter): Task[] {
   }
 
   const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";
-  return db.prepare(`SELECT * FROM tasks${where}`).all(...params) as Task[];
+  return db
+    .prepare(`SELECT * FROM tasks${where} ORDER BY created_at ASC, id ASC`)
+    .all(...params) as Task[];
 }
 
 // Atomic conditional claim. Two processes calling claimTask on the same row
@@ -648,7 +658,9 @@ export function listReviews(db: Database.Database, filter?: ReviewFilter): Revie
   }
 
   const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";
-  return db.prepare(`SELECT * FROM reviews${where}`).all(...params) as Review[];
+  return db
+    .prepare(`SELECT * FROM reviews${where} ORDER BY created_at ASC, id ASC`)
+    .all(...params) as Review[];
 }
 
 export function submitReview(
