@@ -5,6 +5,7 @@ import {
   type UpdateStatusInput,
   getSession,
   listSessions,
+  pruneStaleSessions,
   updateSessionStatus,
   updateStatus,
 } from "../db.js";
@@ -20,21 +21,15 @@ export function handleWhoami(db: Database.Database, sessionId: string): Session 
   return session;
 }
 
-export function handleListSessions(
-  db: Database.Database,
-  filter?: SessionFilter,
-): Session[] {
+export function handleListSessions(db: Database.Database, filter?: SessionFilter): Session[] {
   if (filter?.status) {
     validateEnum(filter.status, SESSION_STATUSES, "status");
   }
+  pruneStaleSessions(db);
   return listSessions(db, filter);
 }
 
-export function handleSetLabel(
-  db: Database.Database,
-  sessionId: string,
-  label: string,
-): Session {
+export function handleSetLabel(db: Database.Database, sessionId: string, label: string): Session {
   validateStringLength(label, 200, "label");
   db.prepare(`UPDATE sessions SET label = ? WHERE id = ?`).run(label, sessionId);
   const session = getSession(db, sessionId);
