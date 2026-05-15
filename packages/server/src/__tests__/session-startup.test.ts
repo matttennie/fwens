@@ -151,9 +151,9 @@ describe("startup: FWENS_RESUME_LABEL", () => {
   it("resumes the most recent disconnected session matching label + agent_type", () => {
     const old = createSession(db, "claude", "claude-main");
     updateSessionStatus(db, old, "disconnected");
-    db.prepare(
-      `UPDATE sessions SET last_seen_at = datetime('now', '-1 hour') WHERE id = ?`,
-    ).run(old);
+    db.prepare(`UPDATE sessions SET last_seen_at = datetime('now', '-1 hour') WHERE id = ?`).run(
+      old,
+    );
 
     const recent = createSession(db, "claude", "claude-main");
     updateSessionStatus(db, recent, "disconnected");

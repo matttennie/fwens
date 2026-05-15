@@ -6,7 +6,7 @@ export function runSessions(projectDir: string): void {
   try {
     const sessions = db
       .prepare(
-        "SELECT id, agent_type, label, status, connected_at, last_seen_at FROM sessions ORDER BY last_seen_at DESC"
+        "SELECT id, agent_type, label, status, connected_at, last_seen_at FROM sessions ORDER BY last_seen_at DESC",
       )
       .all() as Array<{
       id: string;
@@ -26,9 +26,7 @@ export function runSessions(projectDir: string): void {
     for (const s of sessions) {
       const label = s.label ? ` (${s.label})` : "";
       console.log(`  ${s.agent_type}${label} [${s.status}] — ${s.id}`);
-      console.log(
-        `    Connected: ${s.connected_at}  Last seen: ${s.last_seen_at}`
-      );
+      console.log(`    Connected: ${s.connected_at}  Last seen: ${s.last_seen_at}`);
       console.log();
     }
   } finally {

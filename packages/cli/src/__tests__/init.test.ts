@@ -38,9 +38,7 @@ describe("runInit", () => {
     // Verify the database has the expected tables
     const db = new Database(dbPath, { readonly: true });
     const tables = db
-      .prepare(
-        "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-      )
+      .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
       .all() as Array<{ name: string }>;
     db.close();
 
@@ -61,16 +59,12 @@ describe("runInit", () => {
     expect(fs.existsSync(path.join(mcpDir, "opencode.json"))).toBe(true);
 
     // Verify claude.json content (mcpServers format)
-    const claudeConfig = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8")
-    );
+    const claudeConfig = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
     expect(claudeConfig.mcpServers.fwens.env.FWENS_AGENT_TYPE).toBe("claude");
     expect(claudeConfig.mcpServers.fwens.env.FWENS_PROJECT).toBe(tmpDir);
 
     // Verify opencode.json uses OpenCode's schema (not mcpServers)
-    const opencodeConfig = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8")
-    );
+    const opencodeConfig = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     expect(opencodeConfig.mcp.fwens.type).toBe("local");
     expect(opencodeConfig.mcp.fwens.command).toBeInstanceOf(Array);
     expect(opencodeConfig.mcp.fwens.command[0]).toBe("node");
@@ -86,39 +80,29 @@ describe("runInit", () => {
   it("installs project instruction files that make agents check fwens on startup", () => {
     runInit(tmpDir);
 
-    for (const filename of [
-      "AGENTS.md",
-      "CLAUDE.md",
-      "GEMINI.md",
-      "OPENCODE.md",
-    ]) {
+    for (const filename of ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "OPENCODE.md"]) {
       const instructionPath = path.join(tmpDir, filename);
       expect(fs.existsSync(instructionPath)).toBe(true);
 
       const content = fs.readFileSync(instructionPath, "utf-8");
       expect(content).toContain("<!-- fwens:start -->");
       expect(content).toContain("<!-- fwens:end -->");
-      expect(content).toContain("Mandatory Startup Check");
+      expect(content).toContain("## Session Startup");
       expect(content).toContain(
-        'without waiting for the human to say "find fwens"'
+        "Pick the highest-priority task from the task description or general-channel messages",
       );
-      expect(content).toContain("Call `cleanup_completed_tasks`");
-      expect(content).toContain("Call `whoami`");
-      expect(content).toContain("Call `list_tasks`");
-      expect(content).toContain("MUST immediately call `claim_task`");
+      expect(content).toContain('## "find fwens"');
+      expect(content).toContain("never claim a task assigned to another agent");
+      expect(content).toContain("## Executing Work");
+      expect(content).toContain("Always include a `short_name` (2-4 words) for dashboard display");
+      expect(content).toContain("## CRITICAL: No Confirmation Required");
+      expect(content).toContain('## "make fwens"');
+      expect(content).toContain("## Session Resume");
+      expect(content).toContain("## Tools");
       expect(content).toContain(
-        "Do not ask the human whether to claim or begin"
+        "The shared fwens database for this project is at `.fwens/fwens.db`.",
       );
-      expect(content).toContain("call `claim_task`");
-      expect(content).toContain("call `complete_task`");
-      expect(content).toContain(
-        "Do not ask for permission to start assigned work"
-      );
-      expect(content).toContain("check for unfinished work from previous sessions");
-      expect(content).toContain(
-        "Do not reassign or overwrite unfinished tasks without explicit human confirmation"
-      );
-      expect(content).toContain(path.join(tmpDir, ".fwens", "fwens.db"));
+      expect(content).not.toContain(tmpDir);
     }
   });
 
@@ -126,27 +110,21 @@ describe("runInit", () => {
     runInit(tmpDir);
     const instructionsDir = path.join(tmpDir, ".fwens", "agent-instructions");
 
-    for (const filename of [
-      "AGENTS.md",
-      "CLAUDE.md",
-      "GEMINI.md",
-      "OPENCODE.md",
-    ]) {
+    for (const filename of ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "OPENCODE.md"]) {
       const mirroredPath = path.join(instructionsDir, filename);
       expect(fs.existsSync(mirroredPath)).toBe(true);
 
       const content = fs.readFileSync(mirroredPath, "utf-8");
-      expect(content).toContain("Mandatory Startup Check");
-      expect(content).toContain("Do not stop after reporting that fwens exists");
+      expect(content).toContain("## Session Startup");
+      expect(content).toContain('## "find fwens"');
+      expect(content).toContain("## Executing Work");
+      expect(content).toContain("## CRITICAL: No Confirmation Required");
     }
   });
 
   it("preserves existing instruction content while adding the fwens block", () => {
     const agentsPath = path.join(tmpDir, "AGENTS.md");
-    fs.writeFileSync(
-      agentsPath,
-      "# Project Instructions\n\nKeep local conventions intact.\n"
-    );
+    fs.writeFileSync(agentsPath, "# Project Instructions\n\nKeep local conventions intact.\n");
 
     runInit(tmpDir);
 
@@ -154,7 +132,7 @@ describe("runInit", () => {
     expect(content).toContain("# Project Instructions");
     expect(content).toContain("Keep local conventions intact.");
     expect(content).toContain("<!-- fwens:start -->");
-    expect(content).toContain("Mandatory Startup Check");
+    expect(content).toContain("## Session Startup");
   });
 
   it("replaces an existing managed instruction block instead of duplicating it", () => {
@@ -170,7 +148,7 @@ describe("runInit", () => {
         "",
         "Keep this footer.",
         "",
-      ].join("\n")
+      ].join("\n"),
     );
 
     runInit(tmpDir);
@@ -179,7 +157,7 @@ describe("runInit", () => {
     const content = fs.readFileSync(agentsPath, "utf-8");
     expect(content).toContain("# Project Instructions");
     expect(content).toContain("Keep this footer.");
-    expect(content).toContain("Mandatory Startup Check");
+    expect(content).toContain("## Session Startup");
     expect(content).not.toContain("old fwens instructions");
     expect(content.match(/<!-- fwens:start -->/g)).toHaveLength(1);
     expect(content.match(/<!-- fwens:end -->/g)).toHaveLength(1);
@@ -191,9 +169,7 @@ describe("runInit", () => {
     expect(() => runInit(tmpDir)).not.toThrow();
 
     // config.json should still have original project_root
-    const config = JSON.parse(
-      fs.readFileSync(path.join(tmpDir, ".fwens", "config.json"), "utf-8")
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(tmpDir, ".fwens", "config.json"), "utf-8"));
     expect(config.project_root).toBe(tmpDir);
   });
 });

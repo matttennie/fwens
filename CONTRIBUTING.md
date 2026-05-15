@@ -26,4 +26,4 @@ npm test
 
 - TypeScript throughout.
 - 2-space indentation, LF line endings.
-- Run the formatter before committing.
+- Run `npm run format` before committing to ensure consistent style.

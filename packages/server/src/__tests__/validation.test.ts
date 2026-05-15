@@ -1,11 +1,6 @@
 import { describe, it, expect } from "vitest";
 import path from "node:path";
-import {
-  validateUuid,
-  validatePath,
-  validateStringLength,
-  validateEnum,
-} from "../validation.js";
+import { validateUuid, validatePath, validateStringLength, validateEnum } from "../validation.js";
 
 describe("validateUuid", () => {
   it("accepts a valid UUID", () => {
@@ -41,20 +36,16 @@ describe("validatePath", () => {
   });
 
   it("rejects .. traversal outside root", () => {
-    expect(() => validatePath("../../etc/passwd", projectRoot)).toThrow(
-      "Path traversal detected"
-    );
+    expect(() => validatePath("../../etc/passwd", projectRoot)).toThrow("Path traversal detected");
   });
 
   it("rejects an absolute path outside root", () => {
-    expect(() => validatePath("/etc/passwd", projectRoot)).toThrow(
-      "Path traversal detected"
-    );
+    expect(() => validatePath("/etc/passwd", projectRoot)).toThrow("Path traversal detected");
   });
 
   it("rejects a normalized traversal (foo/../../..)", () => {
     expect(() => validatePath("foo/../../../etc/passwd", projectRoot)).toThrow(
-      "Path traversal detected"
+      "Path traversal detected",
     );
   });
 
@@ -75,7 +66,7 @@ describe("validateStringLength", () => {
 
   it("rejects a string exceeding the limit", () => {
     expect(() => validateStringLength("hello world", 5, "name")).toThrow(
-      "name exceeds maximum length of 5"
+      "name exceeds maximum length of 5",
     );
   });
 });
@@ -89,7 +80,7 @@ describe("validateEnum", () => {
 
   it("rejects an invalid value", () => {
     expect(() => validateEnum("deleted", allowed, "status")).toThrow(
-      'Invalid status: "deleted". Allowed: active, inactive, pending'
+      'Invalid status: "deleted". Allowed: active, inactive, pending',
     );
   });
 });

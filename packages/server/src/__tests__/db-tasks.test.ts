@@ -111,9 +111,9 @@ describe("claimTask", () => {
   });
 
   it("throws if task does not exist", () => {
-    expect(() =>
-      claimTask(db, "00000000-0000-0000-0000-000000000000", sessionId),
-    ).toThrow("Task not found");
+    expect(() => claimTask(db, "00000000-0000-0000-0000-000000000000", sessionId)).toThrow(
+      "Task not found",
+    );
   });
 });
 
@@ -159,12 +159,10 @@ describe("cleanupCompletedTasks", () => {
     claimTask(db, reviewedTask, sessionId);
     completeTask(db, reviewedTask, sessionId, { summary: "Ready" });
     const reviewId = requestReview(db, reviewedTask, sessionId);
-    db.prepare(
-      `UPDATE reviews SET verdict = 'pass', findings = 'Looks good' WHERE id = ?`,
-    ).run(reviewId);
-    db.prepare(`UPDATE tasks SET status = 'reviewed' WHERE id = ?`).run(
-      reviewedTask,
+    db.prepare(`UPDATE reviews SET verdict = 'pass', findings = 'Looks good' WHERE id = ?`).run(
+      reviewId,
     );
+    db.prepare(`UPDATE tasks SET status = 'reviewed' WHERE id = ?`).run(reviewedTask);
     postMessage(db, sessionId, {
       channel: `task:${reviewedTask}`,
       content: "Reviewed task message",
@@ -173,9 +171,7 @@ describe("cleanupCompletedTasks", () => {
     const cancelledTask = createTask(db, sessionId, {
       description: "Cancelled task",
     });
-    db.prepare(`UPDATE tasks SET status = 'cancelled' WHERE id = ?`).run(
-      cancelledTask,
-    );
+    db.prepare(`UPDATE tasks SET status = 'cancelled' WHERE id = ?`).run(cancelledTask);
 
     const result = cleanupCompletedTasks(db);
 
@@ -189,9 +185,7 @@ describe("cleanupCompletedTasks", () => {
     expect(getTask(db, cancelledTask)).toBeUndefined();
     expect(getReview(db, reviewId)).toBeUndefined();
     expect(readMessages(db, { channel: `task:${doneTask}` })).toHaveLength(0);
-    expect(readMessages(db, { channel: `task:${reviewedTask}` })).toHaveLength(
-      0,
-    );
+    expect(readMessages(db, { channel: `task:${reviewedTask}` })).toHaveLength(0);
   });
 
   it("preserves unfinished tasks", () => {

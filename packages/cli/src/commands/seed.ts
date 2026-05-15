@@ -39,7 +39,7 @@ export function runSeed(projectDir: string, taskFile: string): void {
   // Find active sessions to resolve agent type → session ID
   const sessions = db
     .prepare(
-      "SELECT id, agent_type, label FROM sessions WHERE status != 'disconnected' ORDER BY last_seen_at DESC"
+      "SELECT id, agent_type, label FROM sessions WHERE status != 'disconnected' ORDER BY last_seen_at DESC",
     )
     .all() as { id: string; agent_type: string; label: string | null }[];
 
@@ -58,19 +58,18 @@ export function runSeed(projectDir: string, taskFile: string): void {
     if (task.assigned_to) {
       assignedTo = sessionByType.get(task.assigned_to) ?? null;
       if (!assignedTo) {
-        console.warn(
-          `  Warning: no active session for "${task.assigned_to}", creating unassigned`
-        );
+        console.warn(`  Warning: no active session for "${task.assigned_to}", creating unassigned`);
       }
     }
 
-    db.prepare(
-      "INSERT INTO tasks (id, description, context, assigned_to) VALUES (?, ?, ?, ?)"
-    ).run(id, task.description, task.context ?? null, assignedTo);
+    db.prepare("INSERT INTO tasks (id, description, context, assigned_to) VALUES (?, ?, ?, ?)").run(
+      id,
+      task.description,
+      task.context ?? null,
+      assignedTo,
+    );
 
-    const assignLabel = assignedTo
-      ? task.assigned_to
-      : "(unassigned)";
+    const assignLabel = assignedTo ? task.assigned_to : "(unassigned)";
     console.log(`  Created: ${task.description.slice(0, 60)} → ${assignLabel}`);
     created++;
   }

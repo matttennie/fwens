@@ -29,11 +29,7 @@ export function runMessages(projectDir: string, channel?: string): void {
     }>;
 
     if (messages.length === 0) {
-      console.log(
-        channel
-          ? `No messages in channel '${channel}'.`
-          : "No messages found."
-      );
+      console.log(channel ? `No messages in channel '${channel}'.` : "No messages found.");
       return;
     }
 

@@ -56,24 +56,18 @@ describe("claude.json", () => {
   });
 
   it("uses mcpServers top-level key", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
     expect(config).toHaveProperty("mcpServers");
     expect(config).toHaveProperty("mcpServers.fwens");
   });
 
   it("has command as a string", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
     expect(config.mcpServers.fwens.command).toBe("node");
   });
 
   it("has args as an array with the server path", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
     const args = config.mcpServers.fwens.args;
     expect(Array.isArray(args)).toBe(true);
     expect(args).toHaveLength(1);
@@ -81,23 +75,17 @@ describe("claude.json", () => {
   });
 
   it("sets FWENS_AGENT_TYPE to claude", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
     expect(config.mcpServers.fwens.env.FWENS_AGENT_TYPE).toBe("claude");
   });
 
   it("sets FWENS_PROJECT to the project directory", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
     expect(config.mcpServers.fwens.env.FWENS_PROJECT).toBe(tmpDir);
   });
 
   it("does not contain OpenCode-specific keys", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
     expect(config.mcp).toBeUndefined();
     expect(config.mcpServers.fwens.type).toBeUndefined();
     expect(config.mcpServers.fwens.environment).toBeUndefined();
@@ -105,17 +93,13 @@ describe("claude.json", () => {
   });
 
   it("has only expected keys in the fwens entry", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
     const keys = Object.keys(config.mcpServers.fwens).sort();
     expect(keys).toEqual(["args", "command", "env"]);
   });
 
   it("has only expected env vars", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
     const envKeys = Object.keys(config.mcpServers.fwens.env).sort();
     expect(envKeys).toEqual(["FWENS_AGENT_TYPE", "FWENS_PROJECT"]);
   });
@@ -136,40 +120,30 @@ describe("gemini.json", () => {
   });
 
   it("uses mcpServers top-level key", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"));
     expect(config).toHaveProperty("mcpServers");
     expect(config).toHaveProperty("mcpServers.fwens");
   });
 
   it("has command as a string and args as an array", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"));
     expect(config.mcpServers.fwens.command).toBe("node");
     expect(Array.isArray(config.mcpServers.fwens.args)).toBe(true);
     expect(config.mcpServers.fwens.args[0]).toContain(expectedServerPath());
   });
 
   it("sets FWENS_AGENT_TYPE to gemini", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"));
     expect(config.mcpServers.fwens.env.FWENS_AGENT_TYPE).toBe("gemini");
   });
 
   it("sets FWENS_PROJECT to the project directory", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"));
     expect(config.mcpServers.fwens.env.FWENS_PROJECT).toBe(tmpDir);
   });
 
   it("does not contain OpenCode-specific keys", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"));
     expect(config.mcp).toBeUndefined();
     expect(config.mcpServers.fwens.type).toBeUndefined();
     expect(config.mcpServers.fwens.environment).toBeUndefined();
@@ -177,12 +151,8 @@ describe("gemini.json", () => {
   });
 
   it("has the same structure as claude.json (except agent_type)", () => {
-    const claude = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
-    const gemini = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"),
-    );
+    const claude = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
+    const gemini = JSON.parse(fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"));
 
     // Same keys
     expect(Object.keys(gemini.mcpServers.fwens).sort()).toEqual(
@@ -272,25 +242,19 @@ describe("opencode.json", () => {
   });
 
   it("uses mcp top-level key (NOT mcpServers)", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     expect(config).toHaveProperty("mcp");
     expect(config).toHaveProperty("mcp.fwens");
     expect(config.mcpServers).toBeUndefined();
   });
 
   it("sets type to local", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     expect(config.mcp.fwens.type).toBe("local");
   });
 
   it("has command as an array (not string + args)", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     const cmd = config.mcp.fwens.command;
     expect(Array.isArray(cmd)).toBe(true);
     expect(cmd[0]).toBe("node");
@@ -298,61 +262,45 @@ describe("opencode.json", () => {
   });
 
   it("does NOT have a separate args field", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     expect(config.mcp.fwens.args).toBeUndefined();
   });
 
   it("uses environment key (NOT env)", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     expect(config.mcp.fwens.environment).toBeDefined();
     expect(config.mcp.fwens.env).toBeUndefined();
   });
 
   it("sets FWENS_AGENT_TYPE to opencode", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     expect(config.mcp.fwens.environment.FWENS_AGENT_TYPE).toBe("opencode");
   });
 
   it("sets FWENS_PROJECT to the project directory", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     expect(config.mcp.fwens.environment.FWENS_PROJECT).toBe(tmpDir);
   });
 
   it("sets enabled to true", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     expect(config.mcp.fwens.enabled).toBe(true);
   });
 
   it("has only expected keys in the fwens entry", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     const keys = Object.keys(config.mcp.fwens).sort();
     expect(keys).toEqual(["command", "enabled", "environment", "type"]);
   });
 
   it("has only expected environment vars", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     const envKeys = Object.keys(config.mcp.fwens.environment).sort();
     expect(envKeys).toEqual(["FWENS_AGENT_TYPE", "FWENS_PROJECT"]);
   });
 
   it("command array has exactly 2 elements (node + path)", () => {
-    const config = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const config = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
     expect(config.mcp.fwens.command).toHaveLength(2);
   });
 });
@@ -363,19 +311,10 @@ describe("opencode.json", () => {
 
 describe("cross-config consistency", () => {
   it("all configs point to the same server path", () => {
-    const claude = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
-    const gemini = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"),
-    );
-    const opencode = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
-    const codexRaw = fs.readFileSync(
-      path.join(mcpDir, "codex.toml"),
-      "utf-8",
-    );
+    const claude = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
+    const gemini = JSON.parse(fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"));
+    const opencode = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
+    const codexRaw = fs.readFileSync(path.join(mcpDir, "codex.toml"), "utf-8");
 
     const claudePath = claude.mcpServers.fwens.args[0];
     const geminiPath = gemini.mcpServers.fwens.args[0];
@@ -390,15 +329,9 @@ describe("cross-config consistency", () => {
   });
 
   it("all configs set the correct project directory", () => {
-    const claude = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
-    const gemini = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"),
-    );
-    const opencode = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
+    const claude = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
+    const gemini = JSON.parse(fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"));
+    const opencode = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
 
     expect(claude.mcpServers.fwens.env.FWENS_PROJECT).toBe(tmpDir);
     expect(gemini.mcpServers.fwens.env.FWENS_PROJECT).toBe(tmpDir);
@@ -406,19 +339,10 @@ describe("cross-config consistency", () => {
   });
 
   it("each config sets a unique agent type", () => {
-    const claude = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"),
-    );
-    const gemini = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"),
-    );
-    const opencode = JSON.parse(
-      fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"),
-    );
-    const codexRaw = fs.readFileSync(
-      path.join(mcpDir, "codex.toml"),
-      "utf-8",
-    );
+    const claude = JSON.parse(fs.readFileSync(path.join(mcpDir, "claude.json"), "utf-8"));
+    const gemini = JSON.parse(fs.readFileSync(path.join(mcpDir, "gemini.json"), "utf-8"));
+    const opencode = JSON.parse(fs.readFileSync(path.join(mcpDir, "opencode.json"), "utf-8"));
+    const codexRaw = fs.readFileSync(path.join(mcpDir, "codex.toml"), "utf-8");
 
     const types = new Set([
       claude.mcpServers.fwens.env.FWENS_AGENT_TYPE,
@@ -426,9 +350,7 @@ describe("cross-config consistency", () => {
       opencode.mcp.fwens.environment.FWENS_AGENT_TYPE,
     ]);
     // Extract from TOML
-    const codexTypeMatch = codexRaw.match(
-      /FWENS_AGENT_TYPE\s*=\s*"([^"]+)"/,
-    );
+    const codexTypeMatch = codexRaw.match(/FWENS_AGENT_TYPE\s*=\s*"([^"]+)"/);
     types.add(codexTypeMatch![1]);
 
     expect(types.size).toBe(4);
@@ -440,12 +362,7 @@ describe("cross-config consistency", () => {
 
   it("all four config files exist", () => {
     const files = fs.readdirSync(mcpDir).sort();
-    expect(files).toEqual([
-      "claude.json",
-      "codex.toml",
-      "gemini.json",
-      "opencode.json",
-    ]);
+    expect(files).toEqual(["claude.json", "codex.toml", "gemini.json", "opencode.json"]);
   });
 });
 
@@ -455,9 +372,7 @@ describe("cross-config consistency", () => {
 
 describe("codex TOML injection prevention", () => {
   it("escapes double quotes in project directory path", () => {
-    const evilDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'fwens-mcp-evil"test-'),
-    );
+    const evilDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwens-mcp-evil"test-'));
     try {
       runInit(evilDir);
       const raw = fs.readFileSync(
@@ -473,9 +388,7 @@ describe("codex TOML injection prevention", () => {
   });
 
   it("escapes backslashes in project directory path", () => {
-    const evilDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), "fwens-mcp-back\\slash-"),
-    );
+    const evilDir = fs.mkdtempSync(path.join(os.tmpdir(), "fwens-mcp-back\\slash-"));
     try {
       runInit(evilDir);
       const raw = fs.readFileSync(
@@ -490,25 +403,17 @@ describe("codex TOML injection prevention", () => {
   });
 
   it("JSON configs handle special characters via JSON.stringify", () => {
-    const evilDir = fs.mkdtempSync(
-      path.join(os.tmpdir(), 'fwens-mcp-json"test-'),
-    );
+    const evilDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fwens-mcp-json"test-'));
     try {
       runInit(evilDir);
       // JSON.stringify escapes quotes automatically — just verify it parses
       const claude = JSON.parse(
-        fs.readFileSync(
-          path.join(evilDir, ".fwens", "mcp-configs", "claude.json"),
-          "utf-8",
-        ),
+        fs.readFileSync(path.join(evilDir, ".fwens", "mcp-configs", "claude.json"), "utf-8"),
       );
       expect(claude.mcpServers.fwens.env.FWENS_PROJECT).toBe(evilDir);
 
       const opencode = JSON.parse(
-        fs.readFileSync(
-          path.join(evilDir, ".fwens", "mcp-configs", "opencode.json"),
-          "utf-8",
-        ),
+        fs.readFileSync(path.join(evilDir, ".fwens", "mcp-configs", "opencode.json"), "utf-8"),
       );
       expect(opencode.mcp.fwens.environment.FWENS_PROJECT).toBe(evilDir);
     } finally {

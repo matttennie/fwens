@@ -1,0 +1,4 @@
+The tables hold what every node must know,
+A ledger kept in rows of shared design,
+While transactions rise and sessions flow,
+Each query finds the state through one clear line.

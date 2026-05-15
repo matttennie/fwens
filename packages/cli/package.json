@@ -1,7 +1,15 @@
 {
   "name": "@fwens/cli",
   "version": "0.1.0",
+  "description": "CLI tool for initializing and managing fwens coordination",
   "private": true,
+  "license": "MIT",
+  "author": "Matt Tennie",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matttennie/fwens.git",
+    "directory": "packages/cli"
+  },
   "type": "module",
   "bin": {
     "fwens": "dist/index.js"
@@ -12,6 +20,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@fwens/server": "*",
     "better-sqlite3": "^11.0.0",
     "commander": "^13.0.0"
   },

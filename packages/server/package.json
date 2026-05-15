@@ -1,9 +1,21 @@
 {
   "name": "@fwens/server",
   "version": "0.1.0",
+  "description": "MCP server for fwens multi-agent coordination",
   "private": true,
+  "license": "MIT",
+  "author": "Matt Tennie",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matttennie/fwens.git",
+    "directory": "packages/server"
+  },
   "type": "module",
   "main": "dist/index.js",
+  "exports": {
+    ".": "./dist/index.js",
+    "./schema": "./dist/schema.js"
+  },
   "bin": {
     "fwens-server": "dist/index.js"
   },

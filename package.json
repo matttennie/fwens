@@ -1,11 +1,32 @@
 {
   "name": "fwens",
   "version": "0.1.0",
+  "description": "A shared coordination system for multi-agent software engineering",
   "private": true,
-  "workspaces": ["packages/*"],
+  "license": "MIT",
+  "author": "Matt Tennie",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/matttennie/fwens.git"
+  },
+  "keywords": [
+    "mcp",
+    "agentic",
+    "coordination",
+    "multi-agent",
+    "workflow"
+  ],
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces",
-    "clean": "rm -rf packages/*/dist"
+    "clean": "rm -rf packages/*/dist",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.8.3"
   }
 }
