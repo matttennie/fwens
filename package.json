@@ -20,7 +20,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "npm run build -w @fwens/server && npm run build -w @fwens/cli",
     "test": "npm run test --workspaces",
     "clean": "rm -rf packages/*/dist",
     "format": "prettier --write .",
