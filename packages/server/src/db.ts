@@ -17,10 +17,26 @@ export interface Session {
 }
 
 export interface PruneStaleSessionsResult {
-  pruned: number;
+  pruned_dead_pid: number;
+  pruned_aged_out: number;
   kept_alive: number;
-  skipped_no_pid: number;
+  skipped_no_pid_recent: number;
+  disabled: boolean;
+  events: PruneEvent[];
 }
+
+export interface PruneEvent {
+  session_id: string;
+  reason: "dead_pid" | "aged_out";
+  pid: number | null;
+  age_ms: number;
+  at: string;
+}
+
+// Default: prune sessions whose last_seen_at is older than 24h, even if their
+// PID is alive. Bounds the PID-recycling zombie problem. Configurable via
+// FWENS_PRUNE_MAX_IDLE_MS.
+export const DEFAULT_PRUNE_MAX_IDLE_MS = 24 * 60 * 60 * 1000;
 
 export interface SessionFilter {
   status?: string;
@@ -240,48 +256,140 @@ export function updateLastSeen(db: Database.Database, id: string): void {
   db.prepare(`UPDATE sessions SET last_seen_at = datetime('now') WHERE id = ?`).run(id);
 }
 
-// Sends signal 0 to check process existence without affecting it. POSIX
-// behavior: throws ESRCH if no such PID, EPERM if PID exists but we don't
-// own it. EPERM still proves the process is alive.
+// Sends signal 0 to check process existence without affecting it. Explicit
+// branches per POSIX:
+//   - no throw      -> process exists and we own it -> alive
+//   - ESRCH         -> no such process -> dead
+//   - EPERM         -> process exists but owned by another user -> alive
+//   - other / no code -> sandbox or unsupported syscall; preserve (treat as
+//     alive) rather than prune defensively. A separate kill-switch
+//     (FWENS_DISABLE_PRUNE) covers environments where this happens reliably.
 function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
     return true;
   } catch (e) {
     const code = (e as NodeJS.ErrnoException).code;
-    return code === "EPERM";
+    if (code === "ESRCH") return false;
+    if (code === "EPERM") return true;
+    return true;
   }
+}
+
+export interface PruneStaleSessionsOptions {
+  isAlive?: (pid: number) => boolean;
+  maxIdleMs?: number;
+  now?: () => Date;
+  disabled?: boolean;
 }
 
 export function pruneStaleSessions(
   db: Database.Database,
-  opts?: { isAlive?: (pid: number) => boolean },
+  opts?: PruneStaleSessionsOptions,
 ): PruneStaleSessionsResult {
-  const checkAlive = opts?.isAlive ?? isProcessAlive;
-  const rows = db
-    .prepare(`SELECT id, pid FROM sessions WHERE status != 'disconnected'`)
-    .all() as Array<{ id: string; pid: number | null }>;
-
-  let pruned = 0;
-  let keptAlive = 0;
-  let skippedNoPid = 0;
-
-  const mark = db.prepare(`UPDATE sessions SET status = 'disconnected' WHERE id = ?`);
-
-  for (const row of rows) {
-    if (row.pid === null) {
-      skippedNoPid++;
-      continue;
-    }
-    if (checkAlive(row.pid)) {
-      keptAlive++;
-      continue;
-    }
-    mark.run(row.id);
-    pruned++;
+  const disabled = opts?.disabled ?? process.env.FWENS_DISABLE_PRUNE === "1";
+  if (disabled) {
+    return {
+      pruned_dead_pid: 0,
+      pruned_aged_out: 0,
+      kept_alive: 0,
+      skipped_no_pid_recent: 0,
+      disabled: true,
+      events: [],
+    };
   }
 
-  return { pruned, kept_alive: keptAlive, skipped_no_pid: skippedNoPid };
+  const checkAlive = opts?.isAlive ?? isProcessAlive;
+  const envMaxIdle = process.env.FWENS_PRUNE_MAX_IDLE_MS;
+  const maxIdleMs =
+    opts?.maxIdleMs ??
+    (envMaxIdle && Number.isFinite(Number(envMaxIdle))
+      ? Number(envMaxIdle)
+      : DEFAULT_PRUNE_MAX_IDLE_MS);
+  const now = opts?.now?.() ?? new Date();
+  const nowMs = now.getTime();
+
+  // Indexed query: enumerated statuses use idx_sessions_status. Avoids the
+  // full scan that `status != 'disconnected'` would trigger.
+  const rows = db
+    .prepare(
+      `SELECT id, pid, last_seen_at FROM sessions
+       WHERE status IN ('active','idle','busy','stuck')`,
+    )
+    .all() as Array<{ id: string; pid: number | null; last_seen_at: string }>;
+
+  let prunedDeadPid = 0;
+  let prunedAgedOut = 0;
+  let keptAlive = 0;
+  let skippedNoPidRecent = 0;
+  const events: PruneEvent[] = [];
+
+  // SQLite stores `datetime('now')` as UTC text. Append "Z" so JS Date parses
+  // it as UTC, not local time.
+  const parseSqliteTime = (s: string): number => Date.parse(s.replace(" ", "T") + "Z");
+
+  // Conditional UPDATE: still active when we mark it disconnected, otherwise
+  // a parallel resume/createSession would lose the race.
+  const mark = db.prepare(
+    `UPDATE sessions SET status = 'disconnected'
+     WHERE id = ? AND status IN ('active','idle','busy','stuck')`,
+  );
+
+  const sweep = db.transaction(() => {
+    for (const row of rows) {
+      const lastSeenMs = parseSqliteTime(row.last_seen_at);
+      const ageMs = nowMs - lastSeenMs;
+
+      // Age check first — addresses PID recycling (alive but unrelated) and
+      // legacy NULL-pid rows that would otherwise be unreachable.
+      if (ageMs > maxIdleMs) {
+        const changed = mark.run(row.id).changes;
+        if (changed > 0) {
+          prunedAgedOut++;
+          events.push({
+            session_id: row.id,
+            reason: "aged_out",
+            pid: row.pid,
+            age_ms: ageMs,
+            at: now.toISOString(),
+          });
+        }
+        continue;
+      }
+
+      if (row.pid === null) {
+        skippedNoPidRecent++;
+        continue;
+      }
+
+      if (checkAlive(row.pid)) {
+        keptAlive++;
+        continue;
+      }
+
+      const changed = mark.run(row.id).changes;
+      if (changed > 0) {
+        prunedDeadPid++;
+        events.push({
+          session_id: row.id,
+          reason: "dead_pid",
+          pid: row.pid,
+          age_ms: ageMs,
+          at: now.toISOString(),
+        });
+      }
+    }
+  });
+  sweep();
+
+  return {
+    pruned_dead_pid: prunedDeadPid,
+    pruned_aged_out: prunedAgedOut,
+    kept_alive: keptAlive,
+    skipped_no_pid_recent: skippedNoPidRecent,
+    disabled: false,
+    events,
+  };
 }
 
 export interface UpdateStatusInput {
