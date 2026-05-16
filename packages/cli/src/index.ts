@@ -1,27 +1,16 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import path from "node:path";
-import { runInit } from "./commands/init.js";
 import { runStatus } from "./commands/status.js";
 import { runTasks } from "./commands/tasks.js";
 import { runReviews } from "./commands/reviews.js";
 import { runMessages } from "./commands/messages.js";
 import { runSessions } from "./commands/sessions.js";
 import { runSeed } from "./commands/seed.js";
-import { runWatch } from "./commands/watch.js";
-import { runStart } from "./commands/start.js";
 
 const program = new Command();
 
 program.name("fwens").description("CLI for inspecting fwens project state").version("0.1.0");
-
-program
-  .command("init")
-  .description("Initialize a fwens project in the given directory")
-  .argument("[dir]", "project directory", process.cwd())
-  .action((dir: string) => {
-    runInit(path.resolve(dir));
-  });
 
 program
   .command("status")
@@ -73,23 +62,6 @@ program
   .argument("[dir]", "project directory", process.cwd())
   .action((taskfile: string, dir: string) => {
     runSeed(path.resolve(dir), taskfile);
-  });
-
-program
-  .command("watch")
-  .description("Live dashboard showing agents, tasks, and status")
-  .argument("[dir]", "project directory", process.cwd())
-  .option("--poll <ms>", "poll interval in milliseconds", "1500")
-  .action((dir: string, opts: { poll: string }) => {
-    runWatch(path.resolve(dir), parseInt(opts.poll, 10));
-  });
-
-program
-  .command("start")
-  .description("Launch an agent CLI with fwens startup prompt (claude, gemini, codex, opencode)")
-  .argument("<agent>", "agent to start: claude, gemini, codex, opencode")
-  .action((agent: string) => {
-    runStart(agent);
   });
 
 program.parse();

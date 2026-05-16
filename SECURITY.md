@@ -2,10 +2,9 @@
 
 ## Threat model
 
-fwens is a **local-only** coordination server. It does not make outbound connections or store credentials.
+fwens is a **local-only** coordination server. It does not open network ports, make outbound connections, or store credentials.
 
-- **MCP transport**: stdio only. Each agent spawns its own MCP server process. The MCP server has no TCP/HTTP listeners.
-- **`fwens watch` dashboard**: optional CLI command that starts an HTTP server bound to `127.0.0.1` for the live dashboard. Localhost-only; not reachable from other hosts. Stopped on Ctrl-C.
+- **Transport**: stdio only. Each agent spawns its own server process. No TCP/HTTP listeners.
 - **Storage**: SQLite database on the local filesystem. No remote storage.
 - **Credentials**: fwens never reads, stores, or transmits API keys or tokens.
 
