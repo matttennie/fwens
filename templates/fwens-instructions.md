@@ -6,14 +6,15 @@ This project uses fwens for multi-agent coordination. fwens is active whenever t
 
 At the start of every new agent session, run this immediately — do not wait for the human:
 
-1. `cleanup_completed_tasks` — remove terminal tasks from previous sessions.
-2. `whoami` — note your session ID.
-3. `set_label` — use a short label based on your CLI and role, such as `codex-worker`, `claude-worker`, `gemini-worker`, or `opencode-worker`.
-4. `list_tasks(assigned_to: <your session ID>, status: "open")` — check for assigned work.
-5. `list_reviews(pending: true)` — check for pending reviews.
-6. **If tasks are assigned to you** — `claim_task` and execute immediately. Pick the highest-priority task from the task description or general-channel messages; if priority is unclear, pick the oldest assigned open task. See "Executing Work" below.
-7. **If reviews are pending** — `get_context`, inspect the artifacts, `submit_review` with verdict and findings. After submitting, post the review findings to the general channel with `post_message(channel: "general")` so all agents and the human can reference them from one place.
-8. **If neither** — `list_tasks(status: "open")` to find unassigned tasks. You may only claim tasks that are either assigned directly to you or have no assignment (`assigned_to` is null). Never claim a task assigned to another agent.
+1. `whoami` — note your session ID. (The session row is already in the DB — the MCP server registered it on boot.)
+2. `set_label` — use a short label based on your CLI and role, such as `codex-worker`, `claude-worker`, `gemini-worker`, or `opencode-worker`.
+3. `list_tasks(assigned_to: <your session ID>, status: "open")` — check for assigned work.
+4. `list_reviews(pending: true)` — check for pending reviews.
+5. **If tasks are assigned to you** — `claim_task` and execute immediately. Pick the highest-priority task from the task description or general-channel messages; if priority is unclear, pick the oldest assigned open task. See "Executing Work" below.
+6. **If reviews are pending** — `get_context`, inspect the artifacts, `submit_review` with verdict and findings. After submitting, post the review findings to the general channel with `post_message(channel: "general")` so all agents and the human can reference them from one place.
+7. **If neither** — `list_tasks(status: "open")` to find unassigned tasks. You may only claim tasks that are either assigned directly to you or have no assignment (`assigned_to` is null). Never claim a task assigned to another agent.
+
+**Do NOT call `cleanup_completed_tasks` as part of this startup check.** That tool deletes done/reviewed/cancelled tasks and is destructive to multi-wave coordination workflows that reference prior task IDs. Call it explicitly only when the human asks you to clean up, never automatically.
 
 ## "find fwens"
 
