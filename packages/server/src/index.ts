@@ -56,6 +56,13 @@ const runtime = createRuntimeManager({
   resumeLabel,
 });
 
+// Eager registration on server boot. The session row is written to the DB
+// before any MCP tool is called, so the agent is immediately visible in
+// list_sessions and assignable as a task target. Standard MCP lifecycle
+// behavior — many MCP servers initialize backing state on launch rather
+// than waiting for the first tool call.
+runtime.heartbeat();
+
 function heartbeat() {
   return runtime.heartbeat();
 }
