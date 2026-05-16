@@ -5,7 +5,7 @@ import fs from "node:fs";
 export function openDb(projectDir: string): InstanceType<typeof Database> {
   const dbPath = path.join(projectDir, ".fwens", "fwens.db");
   if (!fs.existsSync(dbPath)) {
-    console.error("No .fwens/fwens.db found. Run 'fwens init' first.");
+    console.error("No .fwens/fwens.db found. Run an agent in this project first.");
     process.exit(1);
   }
   return new Database(dbPath, { readonly: true });

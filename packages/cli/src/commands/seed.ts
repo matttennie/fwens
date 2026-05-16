@@ -12,7 +12,7 @@ interface SeedTask {
 export function runSeed(projectDir: string, taskFile: string): void {
   const dbPath = path.join(projectDir, ".fwens", "fwens.db");
   if (!fs.existsSync(dbPath)) {
-    console.error("No .fwens/fwens.db found. Run 'fwens init' first.");
+    console.error("No .fwens/fwens.db found. Run an agent in this project first.");
     process.exit(1);
   }
 
