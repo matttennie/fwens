@@ -51,14 +51,7 @@ Each agent has its own MCP server process; all share the same `.fwens/fwens.db` 
 
 ## Compliance
 
-This tool is designed to work within each provider's Terms of Service:
-
-- **Human-initiated**: Every agent session is started by a human typing a command
-- **No auto-bypass**: fwens never bypasses CLI confirmation prompts — it coordinates via MCP tools, which are server-side calls that don't require user confirmation
-- **Gemini CLI**: Google's ToS requires human confirmation for file mutations. fwens MCP calls work without confirmation, but when Gemini writes files or runs commands as part of a task, the human must approve each action
-- **Claude Code / Codex**: Both offer official auto-approve modes (`--dangerously-skip-permissions` / `--full-auto`) that are provider-sanctioned
-
-Users should review each provider's ToS and use at their own discretion.
+This tool was designed to comply with each provider's Terms of Service. However, users should review ToS themselves and use at their own discretion.
 
 ## Contributing
 
