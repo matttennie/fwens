@@ -1,4 +1,6 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
+import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { validateUuid, validatePath, validateStringLength, validateEnum } from "../validation.js";
 
@@ -28,11 +30,21 @@ describe("validateUuid", () => {
 });
 
 describe("validatePath", () => {
-  const projectRoot = "/home/user/project";
+  let projectRoot: string;
+  let canonicalRoot: string;
+
+  beforeEach(() => {
+    projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "fwens-validate-"));
+    canonicalRoot = fs.realpathSync(projectRoot);
+  });
+
+  afterEach(() => {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  });
 
   it("accepts a valid path within root", () => {
     const result = validatePath("src/index.ts", projectRoot);
-    expect(result).toBe(path.resolve(projectRoot, "src/index.ts"));
+    expect(result).toBe(path.join(canonicalRoot, "src/index.ts"));
   });
 
   it("rejects .. traversal outside root", () => {
@@ -51,7 +63,30 @@ describe("validatePath", () => {
 
   it("accepts the project root itself", () => {
     const result = validatePath(".", projectRoot);
-    expect(result).toBe(path.resolve(projectRoot));
+    expect(result).toBe(canonicalRoot);
+  });
+
+  it("rejects a symlink that points outside the project root", () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "fwens-outside-"));
+    try {
+      fs.writeFileSync(path.join(outside, "secret.txt"), "secret");
+      const linkInside = path.join(projectRoot, "escape");
+      fs.symlinkSync(outside, linkInside);
+      expect(() => validatePath("escape/secret.txt", projectRoot)).toThrow(
+        "Path traversal detected",
+      );
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
+  });
+
+  it("accepts a symlink that stays within the project root", () => {
+    const target = path.join(projectRoot, "real");
+    fs.mkdirSync(target);
+    fs.writeFileSync(path.join(target, "file.txt"), "ok");
+    fs.symlinkSync(target, path.join(projectRoot, "link"));
+    const result = validatePath("link/file.txt", projectRoot);
+    expect(result).toBe(path.join(canonicalRoot, "real/file.txt"));
   });
 });
 

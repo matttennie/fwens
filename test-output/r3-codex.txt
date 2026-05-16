@@ -1,4 +1,0 @@
-Breakpoints bloom where shadows hide,
-Logs trace the paths that tests denied,
-One fixed thread makes failures clear,
-And quiet builds draw morning near.

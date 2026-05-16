@@ -153,7 +153,7 @@ describe("handleRespondToReview", () => {
   });
 
   it("responds to a review", () => {
-    const review = handleRespondToReview(db, {
+    const review = handleRespondToReview(db, sessionId, {
       review_id: reviewId,
       response: "Fixed",
     });
@@ -161,14 +161,14 @@ describe("handleRespondToReview", () => {
   });
 
   it("rejects invalid review_id UUID", () => {
-    expect(() => handleRespondToReview(db, { review_id: "not-a-uuid", response: "ok" })).toThrow(
-      "Invalid UUID",
-    );
+    expect(() =>
+      handleRespondToReview(db, sessionId, { review_id: "not-a-uuid", response: "ok" }),
+    ).toThrow("Invalid UUID");
   });
 
   it("rejects response exceeding 50,000 chars", () => {
     expect(() =>
-      handleRespondToReview(db, {
+      handleRespondToReview(db, sessionId, {
         review_id: reviewId,
         response: "x".repeat(50_001),
       }),

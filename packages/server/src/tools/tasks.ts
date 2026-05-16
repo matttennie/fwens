@@ -4,6 +4,7 @@ import {
   type TaskFilter,
   type CreateTaskInput,
   type CompleteTaskInput,
+  TASK_STATUSES,
   createTask,
   listTasks,
   claimTask,
@@ -11,15 +12,6 @@ import {
   cleanupCompletedTasks,
 } from "../db.js";
 import { validateUuid, validatePath, validateStringLength, validateEnum } from "../validation.js";
-
-const TASK_STATUSES = [
-  "open",
-  "in_progress",
-  "done",
-  "review_requested",
-  "reviewed",
-  "cancelled",
-] as const;
 
 export function handleCreateTask(
   db: Database.Database,

@@ -110,17 +110,23 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
       }
     }
 
-    const historyPath = path.join(fwensDir, "session-history.jsonl");
-    const historyEntry =
-      JSON.stringify({
-        session_id: sessionId,
-        agent_type: config.agentType,
-        label: config.agentLabel ?? null,
-        resumed: !!existingSession,
-        previous_connected_at: existingSession?.connected_at ?? null,
-        timestamp: new Date().toISOString(),
-      }) + "\n";
-    fs.appendFileSync(historyPath, historyEntry);
+    // Best-effort history log: never block startup on a read-only fs, full
+    // disk, or permission error. The DB write is the authoritative record.
+    try {
+      const historyPath = path.join(fwensDir, "session-history.jsonl");
+      const historyEntry =
+        JSON.stringify({
+          session_id: sessionId,
+          agent_type: config.agentType,
+          label: config.agentLabel ?? null,
+          resumed: !!existingSession,
+          previous_connected_at: existingSession?.connected_at ?? null,
+          timestamp: new Date().toISOString(),
+        }) + "\n";
+      fs.appendFileSync(historyPath, historyEntry);
+    } catch {
+      // Best-effort logging.
+    }
 
     // Note: cleanupCompletedTasks is intentionally NOT called here. Deleting
     // history at boot is hostile to debugging and breaks any prerequisite

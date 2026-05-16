@@ -1,5 +1,8 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import Database from "better-sqlite3";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { initializeDb } from "../schema.js";
 import { createSession, createTask, getTask, postMessage, readMessages } from "../db.js";
 import { validateUuid, validatePath, validateStringLength } from "../validation.js";
@@ -65,7 +68,15 @@ describe("SQL injection prevention", () => {
 // ---------------------------------------------------------------------------
 
 describe("path traversal prevention", () => {
-  const projectRoot = "/project";
+  let projectRoot: string;
+
+  beforeEach(() => {
+    projectRoot = fs.mkdtempSync(path.join(os.tmpdir(), "fwens-sec-"));
+  });
+
+  afterEach(() => {
+    fs.rmSync(projectRoot, { recursive: true, force: true });
+  });
 
   it("blocks ../../etc/passwd traversal", () => {
     expect(() => validatePath("../../etc/passwd", projectRoot)).toThrow("Path traversal detected");
@@ -78,6 +89,17 @@ describe("path traversal prevention", () => {
   it("allows a legitimate nested path within the project", () => {
     const result = validatePath("src/deep/file.ts", projectRoot);
     expect(result).toContain("src/deep/file.ts");
+  });
+
+  it("blocks a symlink that escapes the project root", () => {
+    const outside = fs.mkdtempSync(path.join(os.tmpdir(), "fwens-escape-"));
+    try {
+      fs.writeFileSync(path.join(outside, "leak"), "leak");
+      fs.symlinkSync(outside, path.join(projectRoot, "escape"));
+      expect(() => validatePath("escape/leak", projectRoot)).toThrow("Path traversal detected");
+    } finally {
+      fs.rmSync(outside, { recursive: true, force: true });
+    }
   });
 });
 

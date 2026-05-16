@@ -1,5 +1,0 @@
-A cluster of agents convened,
-To tackle a task unforeseen,
-They split up the load,
-Each wrote their own code,
-And shipped the best build ever seen.

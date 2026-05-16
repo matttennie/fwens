@@ -3,7 +3,7 @@
 ## Setup
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/matttennie/fwens.git
 cd fwens
 npm install
 npm run build
@@ -27,3 +27,7 @@ npm test
 - TypeScript throughout.
 - 2-space indentation, LF line endings.
 - Run `npm run format` before committing to ensure consistent style.
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code.

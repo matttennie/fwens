@@ -69,7 +69,7 @@ If no other agents are connected yet, create the tasks unassigned. They can be c
 
 If `FWENS_RESUME_LABEL` is set in the MCP server config, your session will automatically reconnect to the most recent disconnected session with that label (and matching agent_type). This means your session ID, task assignments, messages, and reviews carry over across restarts. You do not need to do anything special — `whoami` will return the same session ID as before.
 
-The shared fwens database for this project is at `{{FWENS_DB_PATH}}`.
+The shared fwens database for this project is at `.fwens/fwens.db`.
 
 ## Tools
 

@@ -7,6 +7,7 @@ import {
   listSessions,
   updateSessionStatus,
   updateLastSeen,
+  updateStatus,
 } from "../db.js";
 
 let db: InstanceType<typeof Database>;
@@ -121,5 +122,33 @@ describe("session filtering", () => {
     const result = listSessions(db, { status: "active", agent_type: "claude" });
     expect(result).toHaveLength(1);
     expect(result[0].label).toBe("c2");
+  });
+});
+
+describe("updateStatus", () => {
+  it("applies status and tokens_used in a single atomic update", () => {
+    const id = createSession(db, "claude", "atomic");
+    const result = updateStatus(db, id, { status: "busy", tokens_used: 42 });
+    expect(result.status).toBe("busy");
+    expect(result.tokens_used).toBe(42);
+
+    const more = updateStatus(db, id, { tokens_used: 8 });
+    expect(more.status).toBe("busy");
+    expect(more.tokens_used).toBe(50);
+  });
+
+  it("returns the session unchanged when no fields are provided", () => {
+    const id = createSession(db, "claude", "noop");
+    const before = getSession(db, id)!;
+    const after = updateStatus(db, id, {});
+    expect(after.status).toBe(before.status);
+    expect(after.tokens_used).toBe(before.tokens_used);
+  });
+
+  it("updates only status when tokens_used is omitted", () => {
+    const id = createSession(db, "claude", "status-only");
+    const result = updateStatus(db, id, { status: "stuck" });
+    expect(result.status).toBe("stuck");
+    expect(result.tokens_used).toBe(0);
   });
 });

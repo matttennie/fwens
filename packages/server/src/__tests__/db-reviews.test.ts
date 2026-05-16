@@ -58,13 +58,53 @@ describe("submitReview", () => {
 });
 
 describe("respondToReview", () => {
-  it("adds a response to the review", () => {
+  beforeEach(() => {
     submitReview(db, reviewId, reviewerId, {
       verdict: "needs_changes",
       findings: "Fix the bug",
     });
-    const updated = respondToReview(db, reviewId, "Fixed the bug");
+  });
+
+  it("adds a response to the review when called by the worker", () => {
+    const updated = respondToReview(db, reviewId, sessionId, "Fixed the bug");
     expect(updated.response).toBe("Fixed the bug");
+  });
+
+  it("rejects a response from a session that is neither assignee nor creator", () => {
+    const stranger = createSession(db, "codex", "stranger");
+    expect(() => respondToReview(db, reviewId, stranger, "I do not belong here")).toThrow(
+      "Only the task's assignee or creator can respond",
+    );
+  });
+});
+
+describe("review authorization", () => {
+  it("requestReview rejects callers who are neither assignee nor creator", () => {
+    const t2 = createTask(db, sessionId, { description: "another" });
+    claimTask(db, t2, sessionId);
+    completeTask(db, t2, sessionId, { summary: "done" });
+    const stranger = createSession(db, "codex", "stranger");
+    expect(() => requestReview(db, t2, stranger)).toThrow(
+      "Only the task's assignee or creator can request a review",
+    );
+  });
+
+  it("submitReview rejects the assignee but permits the creator", () => {
+    // Reassign the task to a worker, then have that worker try to self-review.
+    const worker = createSession(db, "codex", "worker");
+    const t2 = createTask(db, sessionId, { description: "delegated", assigned_to: worker });
+    claimTask(db, t2, worker);
+    completeTask(db, t2, worker, { summary: "done" });
+    const rev = requestReview(db, t2, worker);
+
+    expect(() => submitReview(db, rev, worker, { verdict: "pass", findings: "self" })).toThrow(
+      "Cannot submit a review on a task assigned to yourself",
+    );
+
+    // The creator (orchestrator) is allowed to review.
+    const result = submitReview(db, rev, sessionId, { verdict: "pass", findings: "approved" });
+    expect(result.verdict).toBe("pass");
+    expect(result.reviewer).toBe(sessionId);
   });
 });
 

@@ -2,6 +2,35 @@ import crypto from "node:crypto";
 import type Database from "better-sqlite3";
 
 // ---------------------------------------------------------------------------
+// Constants — single source of truth for status enums
+// ---------------------------------------------------------------------------
+
+export const SESSION_STATUSES = ["active", "idle", "busy", "stuck", "disconnected"] as const;
+export const SETTABLE_SESSION_STATUSES = ["active", "idle", "busy", "stuck"] as const;
+export type SessionStatus = (typeof SESSION_STATUSES)[number];
+export type SettableSessionStatus = (typeof SETTABLE_SESSION_STATUSES)[number];
+
+export const TASK_STATUSES = [
+  "open",
+  "in_progress",
+  "done",
+  "review_requested",
+  "reviewed",
+  "cancelled",
+] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+export const REVIEW_VERDICTS = ["pass", "fail", "needs_changes"] as const;
+export type ReviewVerdict = (typeof REVIEW_VERDICTS)[number];
+
+// Default caps on result-set size for list endpoints. Bounds memory and
+// MCP-response size when a long-running project accumulates thousands of rows.
+// Callers can pass an explicit `limit` to override.
+export const DEFAULT_LIST_LIMIT = 500;
+export const DEFAULT_MESSAGE_LIMIT = 100;
+export const MAX_LIST_LIMIT = 1000;
+
+// ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 
@@ -9,7 +38,7 @@ export interface Session {
   id: string;
   agent_type: string;
   label: string | null;
-  status: string;
+  status: SessionStatus;
   tokens_used: number;
   connected_at: string;
   last_seen_at: string;
@@ -49,12 +78,36 @@ export interface Task {
   description: string;
   context: string | null;
   assigned_to: string | null;
-  status: string;
+  status: TaskStatus;
+  created_by: string | null;
+  artifacts: string[] | null;
+  summary: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface TaskRow {
+  id: string;
+  short_name: string | null;
+  description: string;
+  context: string | null;
+  assigned_to: string | null;
+  status: TaskStatus;
   created_by: string | null;
   artifacts: string | null;
   summary: string | null;
   created_at: string;
   updated_at: string;
+}
+
+// Tasks store artifact paths as a JSON-encoded array of strings. Callers
+// receive an actual array; the JSON encoding is an internal storage detail.
+function parseTaskRow(row: TaskRow | undefined): Task | undefined {
+  if (!row) return undefined;
+  return {
+    ...row,
+    artifacts: row.artifacts ? (JSON.parse(row.artifacts) as string[]) : null,
+  };
 }
 
 export interface CreateTaskInput {
@@ -68,6 +121,7 @@ export interface TaskFilter {
   status?: string;
   assigned_to?: string;
   mine?: string;
+  limit?: number;
 }
 
 export interface CompleteTaskInput {
@@ -94,6 +148,7 @@ export interface ReviewFilter {
   task_id?: string;
   pending?: boolean;
   mine?: string;
+  limit?: number;
 }
 
 export interface Message {
@@ -114,6 +169,9 @@ export interface MessageFilter {
   since?: string;
   limit?: number;
 }
+
+// Default-applied; explicit 0/undefined falls back to DEFAULT_MESSAGE_LIMIT.
+// Bounds context-window blow-up when a long-lived project accumulates messages.
 
 export interface TaskContext {
   task: Task;
@@ -401,22 +459,31 @@ export function pruneStaleSessions(
 }
 
 export interface UpdateStatusInput {
-  status?: "active" | "idle" | "busy" | "stuck";
+  status?: SettableSessionStatus;
   tokens_used?: number;
 }
 
+// Single UPDATE covers both fields so a crash between them cannot leave the
+// row half-updated. last_seen_at advances on every call.
 export function updateStatus(db: Database.Database, id: string, input: UpdateStatusInput): Session {
-  if (input.status) {
-    db.prepare(`UPDATE sessions SET status = ?, last_seen_at = datetime('now') WHERE id = ?`).run(
-      input.status,
-      id,
-    );
+  if (input.status === undefined && input.tokens_used === undefined) {
+    return getSession(db, id)!;
+  }
+
+  const setClauses: string[] = ["last_seen_at = datetime('now')"];
+  const params: unknown[] = [];
+
+  if (input.status !== undefined) {
+    setClauses.push("status = ?");
+    params.push(input.status);
   }
   if (input.tokens_used !== undefined) {
-    db.prepare(
-      `UPDATE sessions SET tokens_used = tokens_used + ?, last_seen_at = datetime('now') WHERE id = ?`,
-    ).run(input.tokens_used, id);
+    setClauses.push("tokens_used = tokens_used + ?");
+    params.push(input.tokens_used);
   }
+
+  params.push(id);
+  db.prepare(`UPDATE sessions SET ${setClauses.join(", ")} WHERE id = ?`).run(...params);
   return getSession(db, id)!;
 }
 
@@ -445,7 +512,8 @@ export function createTask(
 }
 
 export function getTask(db: Database.Database, id: string): Task | undefined {
-  return db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as Task | undefined;
+  const row = db.prepare(`SELECT * FROM tasks WHERE id = ?`).get(id) as TaskRow | undefined;
+  return parseTaskRow(row);
 }
 
 export function listTasks(db: Database.Database, filter?: TaskFilter): Task[] {
@@ -466,9 +534,19 @@ export function listTasks(db: Database.Database, filter?: TaskFilter): Task[] {
   }
 
   const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";
-  return db
-    .prepare(`SELECT * FROM tasks${where} ORDER BY created_at ASC, id ASC`)
-    .all(...params) as Task[];
+  const limit = clampLimit(filter?.limit, DEFAULT_LIST_LIMIT);
+  params.push(limit);
+
+  const rows = db
+    .prepare(`SELECT * FROM tasks${where} ORDER BY created_at ASC, id ASC LIMIT ?`)
+    .all(...params) as TaskRow[];
+  return rows.map((row) => parseTaskRow(row)!);
+}
+
+function clampLimit(requested: number | undefined, fallback: number): number {
+  if (requested === undefined) return fallback;
+  if (!Number.isFinite(requested) || requested <= 0) return fallback;
+  return Math.min(Math.floor(requested), MAX_LIST_LIMIT);
 }
 
 // Atomic conditional claim. Two processes calling claimTask on the same row
@@ -610,6 +688,9 @@ export function requestReview(
       `Cannot request review on task ${taskId} (status: ${task.status}); task must be 'done' first`,
     );
   }
+  if (task.assigned_to !== sessionId && task.created_by !== sessionId) {
+    throw new Error(`Only the task's assignee or creator can request a review`);
+  }
 
   const reviewId = crypto.randomUUID();
 
@@ -654,8 +735,11 @@ export function listReviews(db: Database.Database, filter?: ReviewFilter): Revie
   }
 
   const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";
+  const limit = clampLimit(filter?.limit, DEFAULT_LIST_LIMIT);
+  params.push(limit);
+
   return db
-    .prepare(`SELECT * FROM reviews${where} ORDER BY created_at ASC, id ASC`)
+    .prepare(`SELECT * FROM reviews${where} ORDER BY created_at ASC, id ASC LIMIT ?`)
     .all(...params) as Review[];
 }
 
@@ -668,6 +752,14 @@ export function submitReview(
   const review = getReview(db, reviewId);
   if (!review) {
     throw new Error(`Review not found: ${reviewId}`);
+  }
+
+  // Self-review prevention: the worker cannot grade their own work. The
+  // orchestrator-as-creator pattern remains valid — a creator who delegated
+  // the task to another agent may legitimately review the result.
+  const task = getTask(db, review.task_id);
+  if (task && task.assigned_to === sessionId) {
+    throw new Error(`Cannot submit a review on a task assigned to yourself`);
   }
 
   // needs_changes sends the task back to the worker for fixes, not into the
@@ -691,7 +783,26 @@ export function submitReview(
   return getReview(db, reviewId)!;
 }
 
-export function respondToReview(db: Database.Database, reviewId: string, response: string): Review {
+// Only the original worker or task creator can respond to a review. The
+// response field stores the worker's reply to reviewer findings, so a third
+// party overwriting it would silently falsify the audit trail.
+export function respondToReview(
+  db: Database.Database,
+  reviewId: string,
+  sessionId: string,
+  response: string,
+): Review {
+  const review = getReview(db, reviewId);
+  if (!review) {
+    throw new Error(`Review not found: ${reviewId}`);
+  }
+  const task = getTask(db, review.task_id);
+  if (!task) {
+    throw new Error(`Task not found for review: ${reviewId}`);
+  }
+  if (task.assigned_to !== sessionId && task.created_by !== sessionId) {
+    throw new Error(`Only the task's assignee or creator can respond to its review`);
+  }
   db.prepare(`UPDATE reviews SET response = ? WHERE id = ?`).run(response, reviewId);
   return getReview(db, reviewId)!;
 }
@@ -730,13 +841,11 @@ export function readMessages(db: Database.Database, filter?: MessageFilter): Mes
   }
 
   const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";
-  const limit = filter?.limit ? ` LIMIT ?` : "";
-  if (filter?.limit) {
-    params.push(filter.limit);
-  }
+  const limit = clampLimit(filter?.limit, DEFAULT_MESSAGE_LIMIT);
+  params.push(limit);
 
   return db
-    .prepare(`SELECT * FROM messages${where} ORDER BY created_at ASC${limit}`)
+    .prepare(`SELECT * FROM messages${where} ORDER BY created_at ASC LIMIT ?`)
     .all(...params) as Message[];
 }
 
@@ -750,8 +859,8 @@ export function getTaskContext(db: Database.Database, taskId: string): TaskConte
     throw new Error(`Task not found: ${taskId}`);
   }
 
-  const reviews = listReviews(db, { task_id: taskId });
-  const messages = readMessages(db, { channel: `task:${taskId}` });
+  const reviews = listReviews(db, { task_id: taskId, limit: MAX_LIST_LIMIT });
+  const messages = readMessages(db, { channel: `task:${taskId}`, limit: MAX_LIST_LIMIT });
 
   return { task, reviews, messages };
 }
