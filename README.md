@@ -29,9 +29,16 @@ fwens is an MCP server. Register `node /path/to/fwens/packages/server/dist/index
 
 ## Use
 
+Each CLI reads an instruction file at your project root (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`, `OPENCODE.md`). Append the contents of `templates/fwens-instructions.md` to whichever ones you use. That's what teaches each agent to run the fwens startup check on every session — without it, "make fwens" and "find fwens" do nothing.
+
+For persistent setup, put the same block in your CLI's user-level instruction file instead.
+
 1. Start each CLI agent yourself, in its own pane.
-2. Tell one agent **"make fwens"** — it creates tasks and assigns them to other agents.
-3. Tell each other agent **"find fwens"** — they check the shared database and execute assigned work.
+2. Tell one agent **"make fwens"** with what work needs doing and to whom. Example:
+
+   > make fwens. Gemini: refactor `auth.ts` to use the new session API. Codex: add tests. Claude: review when both are done.
+
+3. Tell each other agent **"find fwens"** — they check the shared database, claim their tasks, and execute.
 
 Each agent has its own MCP server process; all share the same `.fwens/fwens.db` per project.
 
