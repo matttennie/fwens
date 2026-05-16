@@ -6,14 +6,14 @@ import {
   type Session,
   type SessionFilter,
   type UpdateStatusInput,
+  SESSION_STATUSES,
+  SETTABLE_SESSION_STATUSES,
   getSession,
   listSessions,
   pruneStaleSessions,
   updateStatus,
 } from "../db.js";
 import { validateEnum, validateStringLength } from "../validation.js";
-
-const SESSION_STATUSES = ["active", "idle", "busy", "stuck", "disconnected"] as const;
 
 export function handleWhoami(db: Database.Database, sessionId: string): Session {
   const session = getSession(db, sessionId);
@@ -71,7 +71,7 @@ export function handleUpdateStatus(
   input: { status?: string; tokens_used?: number },
 ): Session {
   if (input.status) {
-    validateEnum(input.status, ["active", "idle", "busy", "stuck"], "status");
+    validateEnum(input.status, SETTABLE_SESSION_STATUSES, "status");
   }
   return updateStatus(db, sessionId, input as UpdateStatusInput);
 }

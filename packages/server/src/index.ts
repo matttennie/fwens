@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import path from "node:path";
 import process from "node:process";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -28,13 +29,31 @@ import { handlePostMessage, handleReadMessages } from "./tools/messages.js";
 import { handleGetContext } from "./tools/context.js";
 import { validateUuid } from "./validation.js";
 import { createRuntimeManager } from "./runtime.js";
+import {
+  REVIEW_VERDICTS,
+  SESSION_STATUSES,
+  SETTABLE_SESSION_STATUSES,
+  TASK_STATUSES,
+  MAX_LIST_LIMIT,
+} from "./db.js";
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 
-const projectRoot = process.env.FWENS_PROJECT ?? process.cwd();
+const projectRoot = resolveProjectRoot(process.env.FWENS_PROJECT);
 const agentType = process.env.FWENS_AGENT_TYPE ?? "claude";
+
+function resolveProjectRoot(envValue: string | undefined): string {
+  if (!envValue) return process.cwd();
+  // Resolve to absolute. Don't require existence; runtime.ts creates the
+  // .fwens subdir on demand. Refuse obviously hostile values that contain a
+  // null byte (would break path APIs anywhere downstream).
+  if (envValue.includes("\0")) {
+    throw new Error(`FWENS_PROJECT contains an invalid character`);
+  }
+  return path.resolve(envValue);
+}
 const agentLabel = process.env.FWENS_LABEL;
 const rawResumeSessionId = process.env.FWENS_SESSION_ID;
 const resumeSessionId = rawResumeSessionId
@@ -101,7 +120,7 @@ server.registerTool(
     title: "List Sessions",
     description: "Lists all agent sessions, optionally filtered by status or agent_type.",
     inputSchema: z.object({
-      status: z.enum(["active", "idle", "busy", "stuck", "disconnected"]).optional(),
+      status: z.enum(SESSION_STATUSES).optional(),
       agent_type: z.string().optional(),
     }),
   },
@@ -147,7 +166,7 @@ server.registerTool(
     description:
       "Update this agent's status (active/idle/busy/stuck) and optionally report token usage. Call with status 'busy' when starting work, 'idle' when done, 'stuck' when blocked.",
     inputSchema: z.object({
-      status: z.enum(["active", "idle", "busy", "stuck"]).optional(),
+      status: z.enum(SETTABLE_SESSION_STATUSES).optional(),
       tokens_used: z.number().int().min(0).optional(),
     }),
   },
@@ -217,9 +236,10 @@ server.registerTool(
     title: "List Tasks",
     description: "Lists tasks, optionally filtered by status, assignee, or created by self.",
     inputSchema: z.object({
-      status: z.enum(["open", "in_progress", "done", "review_requested", "reviewed"]).optional(),
+      status: z.enum(TASK_STATUSES).optional(),
       assigned_to: z.string().optional(),
       mine: z.boolean().optional(),
+      limit: z.number().int().positive().max(MAX_LIST_LIMIT).optional(),
     }),
   },
   async (args) => {
@@ -335,6 +355,7 @@ server.registerTool(
       task_id: z.string().optional(),
       pending: z.boolean().optional(),
       mine: z.boolean().optional(),
+      limit: z.number().int().positive().max(MAX_LIST_LIMIT).optional(),
     }),
   },
   async (args) => {
@@ -357,7 +378,7 @@ server.registerTool(
     description: "Submits a review verdict and findings for a pending review.",
     inputSchema: z.object({
       review_id: z.string(),
-      verdict: z.enum(["pass", "fail", "needs_changes"]),
+      verdict: z.enum(REVIEW_VERDICTS),
       findings: z.string(),
     }),
   },
@@ -387,7 +408,7 @@ server.registerTool(
   async (args) => {
     const { db, sessionId } = heartbeat();
     try {
-      const result = handleRespondToReview(db, args);
+      const result = handleRespondToReview(db, sessionId, args);
       return { content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }] };
     } catch (e) {
       return { content: [{ type: "text" as const, text: (e as Error).message }], isError: true };
@@ -428,7 +449,7 @@ server.registerTool(
     inputSchema: z.object({
       channel: z.string().optional(),
       since: z.string().optional(),
-      limit: z.number().max(1000).optional(),
+      limit: z.number().int().positive().max(MAX_LIST_LIMIT).optional(),
     }),
   },
   async (args) => {

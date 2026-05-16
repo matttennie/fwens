@@ -160,7 +160,7 @@ describe("completeTask", () => {
     });
     expect(completed.status).toBe("done");
     expect(completed.summary).toBe("All done");
-    expect(JSON.parse(completed.artifacts!)).toEqual(["file1.ts", "file2.ts"]);
+    expect(completed.artifacts).toEqual(["file1.ts", "file2.ts"]);
 
     const session = getSession(db, sessionId);
     expect(session!.status).toBe("idle");

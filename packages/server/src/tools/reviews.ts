@@ -3,14 +3,13 @@ import {
   type Review,
   type ReviewFilter,
   type SubmitReviewInput,
+  REVIEW_VERDICTS,
   requestReview,
   listReviews,
   submitReview,
   respondToReview,
 } from "../db.js";
 import { validateUuid, validateStringLength, validateEnum } from "../validation.js";
-
-const VERDICTS = ["pass", "fail", "needs_changes"] as const;
 
 export function handleRequestReview(
   db: Database.Database,
@@ -47,7 +46,7 @@ export function handleSubmitReview(
   args: { review_id: string; verdict: string; findings: string },
 ): Review {
   validateUuid(args.review_id);
-  validateEnum(args.verdict, VERDICTS, "verdict");
+  validateEnum(args.verdict, REVIEW_VERDICTS, "verdict");
   validateStringLength(args.findings, 50_000, "findings");
   const input: SubmitReviewInput = {
     verdict: args.verdict,
@@ -58,9 +57,10 @@ export function handleSubmitReview(
 
 export function handleRespondToReview(
   db: Database.Database,
+  sessionId: string,
   args: { review_id: string; response: string },
 ): Review {
   validateUuid(args.review_id);
   validateStringLength(args.response, 50_000, "response");
-  return respondToReview(db, args.review_id, args.response);
+  return respondToReview(db, args.review_id, sessionId, args.response);
 }

@@ -78,10 +78,7 @@ describe("full workflow: create -> claim -> complete -> review -> respond", () =
     });
     expect(task.status).toBe("done");
     expect(task.summary).toBe("Implemented feature X with full test coverage");
-    expect(JSON.parse(task.artifacts!)).toEqual([
-      "src/featureX.ts",
-      "src/__tests__/featureX.test.ts",
-    ]);
+    expect(task.artifacts).toEqual(["src/featureX.ts", "src/__tests__/featureX.test.ts"]);
 
     const geminiAfterComplete = getSession(db, geminiId)!;
     expect(geminiAfterComplete.status).toBe("idle");
@@ -105,7 +102,12 @@ describe("full workflow: create -> claim -> complete -> review -> respond", () =
     expect(task.status).toBe("in_progress");
 
     // Step 9: Gemini responds to the review
-    const updatedReview = respondToReview(db, reviewId, "Added error handling for the edge case");
+    const updatedReview = respondToReview(
+      db,
+      reviewId,
+      geminiId,
+      "Added error handling for the edge case",
+    );
     expect(updatedReview.response).toBe("Added error handling for the edge case");
 
     // Step 10: getTaskContext returns full context

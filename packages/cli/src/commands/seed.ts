@@ -1,12 +1,13 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
-import crypto from "node:crypto";
+import { initializeDb } from "@fwens/server/schema";
+import { createSession, createTask } from "@fwens/server/db";
 
 interface SeedTask {
   description: string;
   context?: string;
-  assigned_to?: string; // agent type: "claude", "gemini", "codex", "opencode"
+  assigned_to?: string;
 }
 
 export function runSeed(projectDir: string, taskFile: string): void {
@@ -35,11 +36,12 @@ export function runSeed(projectDir: string, taskFile: string): void {
   }
 
   const db = new Database(dbPath);
+  initializeDb(db);
 
-  // Find active sessions to resolve agent type → session ID
   const sessions = db
     .prepare(
-      "SELECT id, agent_type, label FROM sessions WHERE status != 'disconnected' ORDER BY last_seen_at DESC",
+      `SELECT id, agent_type, label FROM sessions WHERE status != 'disconnected'
+       ORDER BY last_seen_at DESC`,
     )
     .all() as { id: string; agent_type: string; label: string | null }[];
 
@@ -50,27 +52,33 @@ export function runSeed(projectDir: string, taskFile: string): void {
     }
   }
 
+  // Register a synthetic "seed" session as the creator so completeTask's
+  // assignee/creator authorization check has a real session to reference.
+  // Marked disconnected immediately; not a participant.
+  const seedSessionId = createSession(db, "seed", "fwens-seed", process.pid);
+  db.prepare(`UPDATE sessions SET status = 'disconnected' WHERE id = ?`).run(seedSessionId);
+
   let created = 0;
   for (const task of tasks) {
-    const id = crypto.randomUUID();
-    let assignedTo: string | null = null;
+    let assignedTo: string | undefined;
 
     if (task.assigned_to) {
-      assignedTo = sessionByType.get(task.assigned_to) ?? null;
-      if (!assignedTo) {
+      const resolved = sessionByType.get(task.assigned_to);
+      if (resolved) {
+        assignedTo = resolved;
+      } else {
         console.warn(`  Warning: no active session for "${task.assigned_to}", creating unassigned`);
       }
     }
 
-    db.prepare("INSERT INTO tasks (id, description, context, assigned_to) VALUES (?, ?, ?, ?)").run(
-      id,
-      task.description,
-      task.context ?? null,
-      assignedTo,
-    );
+    createTask(db, seedSessionId, {
+      description: task.description,
+      context: task.context,
+      assigned_to: assignedTo,
+    });
 
     const assignLabel = assignedTo ? task.assigned_to : "(unassigned)";
-    console.log(`  Created: ${task.description.slice(0, 60)} → ${assignLabel}`);
+    console.log(`  Created: ${task.description.slice(0, 60)} -> ${assignLabel}`);
     created++;
   }
 
