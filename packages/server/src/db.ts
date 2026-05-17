@@ -36,7 +36,6 @@ export const MAX_LIST_LIMIT = 1000;
 
 export interface Session {
   id: string;
-  agent_type: string;
   label: string | null;
   status: SessionStatus;
   tokens_used: number;
@@ -69,7 +68,6 @@ export const DEFAULT_PRUNE_MAX_IDLE_MS = 24 * 60 * 60 * 1000;
 
 export interface SessionFilter {
   status?: string;
-  agent_type?: string;
   limit?: number;
 }
 
@@ -193,16 +191,10 @@ export interface CleanupCompletedTasksResult {
 // Session operations
 // ---------------------------------------------------------------------------
 
-export function createSession(
-  db: Database.Database,
-  agentType: string,
-  label?: string,
-  pid?: number,
-): string {
+export function createSession(db: Database.Database, label?: string, pid?: number): string {
   const id = crypto.randomUUID();
-  db.prepare(`INSERT INTO sessions (id, agent_type, label, pid) VALUES (?, ?, ?, ?)`).run(
+  db.prepare(`INSERT INTO sessions (id, label, pid) VALUES (?, ?, ?)`).run(
     id,
-    agentType,
     label ?? null,
     pid ?? null,
   );
@@ -212,43 +204,25 @@ export function createSession(
 export interface FindDisconnectedSessionOptions {
   sessionId?: string;
   label?: string;
-  agentType?: string;
 }
 
 export function findDisconnectedSession(
   db: Database.Database,
   opts: FindDisconnectedSessionOptions,
 ): Session | undefined {
-  // Explicit session ID takes precedence, but still must match agent_type if provided
   if (opts.sessionId) {
-    if (opts.agentType) {
-      return db
-        .prepare(
-          `SELECT * FROM sessions WHERE id = ? AND status = 'disconnected' AND agent_type = ?`,
-        )
-        .get(opts.sessionId, opts.agentType) as Session | undefined;
-    }
     return db
       .prepare(`SELECT * FROM sessions WHERE id = ? AND status = 'disconnected'`)
       .get(opts.sessionId) as Session | undefined;
   }
 
-  // Label-based lookup — require non-empty label
   if (!opts.label) return undefined;
-
-  const clauses = ["status = 'disconnected'", "label = ?"];
-  const params: unknown[] = [opts.label];
-
-  if (opts.agentType) {
-    clauses.push("agent_type = ?");
-    params.push(opts.agentType);
-  }
 
   return db
     .prepare(
-      `SELECT * FROM sessions WHERE ${clauses.join(" AND ")} ORDER BY last_seen_at DESC LIMIT 1`,
+      `SELECT * FROM sessions WHERE status = 'disconnected' AND label = ? ORDER BY last_seen_at DESC LIMIT 1`,
     )
-    .get(...params) as Session | undefined;
+    .get(opts.label) as Session | undefined;
 }
 
 export interface ResumeSessionOptions {
@@ -304,10 +278,6 @@ export function listSessions(db: Database.Database, filter?: SessionFilter): Ses
   if (filter?.status) {
     clauses.push("status = ?");
     params.push(filter.status);
-  }
-  if (filter?.agent_type) {
-    clauses.push("agent_type = ?");
-    params.push(filter.agent_type);
   }
 
   const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";

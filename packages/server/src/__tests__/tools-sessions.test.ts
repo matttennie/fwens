@@ -19,14 +19,13 @@ let sessionId: string;
 beforeEach(() => {
   db = new Database(":memory:");
   initializeDb(db);
-  sessionId = createSession(db, "claude", "test-agent");
+  sessionId = createSession(db, "test-agent");
 });
 
 describe("handleWhoami", () => {
   it("returns the current session", () => {
     const session = handleWhoami(db, sessionId);
     expect(session.id).toBe(sessionId);
-    expect(session.agent_type).toBe("claude");
     expect(session.label).toBe("test-agent");
     expect(session.status).toBe("active");
   });
@@ -40,7 +39,7 @@ describe("handleWhoami", () => {
 
 describe("handleListSessions", () => {
   it("lists all sessions without filter", () => {
-    createSession(db, "gemini", "g1");
+    createSession(db, "g1");
     const sessions = handleListSessions(db);
     expect(sessions).toHaveLength(2);
   });
@@ -48,7 +47,7 @@ describe("handleListSessions", () => {
   it("is idempotent — does not mutate session state (read-shaped)", () => {
     // Even when a session has a dead PID, list_sessions must not prune it;
     // that's now the exclusive job of prune_sessions.
-    const ghostId = createSession(db, "codex", "ghost", 42);
+    const ghostId = createSession(db, "ghost", 42);
     const beforeStatus = getSession(db, ghostId)!.status;
 
     handleListSessions(db);
@@ -57,18 +56,11 @@ describe("handleListSessions", () => {
   });
 
   it("filters by status", () => {
-    const s2 = createSession(db, "gemini");
+    const s2 = createSession(db, "busy-one");
     updateSessionStatus(db, s2, "busy");
     const sessions = handleListSessions(db, { status: "busy" });
     expect(sessions).toHaveLength(1);
-    expect(sessions[0].agent_type).toBe("gemini");
-  });
-
-  it("filters by agent_type", () => {
-    createSession(db, "gemini");
-    const sessions = handleListSessions(db, { agent_type: "claude" });
-    expect(sessions).toHaveLength(1);
-    expect(sessions[0].label).toBe("test-agent");
+    expect(sessions[0].label).toBe("busy-one");
   });
 
   it("rejects invalid status", () => {
@@ -159,7 +151,7 @@ describe("handlePruneSessions", () => {
     const child = spawnSync(process.execPath, ["-e", ""]);
     const deadPid = child.pid!;
 
-    const ghostId = createSession(db, "codex", "ghost", deadPid);
+    const ghostId = createSession(db, "ghost", deadPid);
 
     const result = handlePruneSessions(db, tmpDir);
 
@@ -177,7 +169,7 @@ describe("handlePruneSessions", () => {
   });
 
   it("writes nothing to the log file when no sessions are pruned", () => {
-    createSession(db, "claude", "alive", process.pid);
+    createSession(db, "alive", process.pid);
 
     handlePruneSessions(db, tmpDir);
 
@@ -186,7 +178,7 @@ describe("handlePruneSessions", () => {
   });
 
   it("tolerates an unwritable fwensDir without throwing", () => {
-    createSession(db, "codex", "ghost", 42);
+    createSession(db, "ghost", 42);
     // Mock a non-existent path; the catch block should swallow.
     expect(() =>
       handlePruneSessions(db, "/nonexistent/path/that/cannot/be/created/by/this/test"),

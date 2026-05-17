@@ -27,21 +27,14 @@ beforeEach(() => {
 });
 
 /**
- * Mimics the startup logic from index.ts:
- * 1. Try FWENS_SESSION_ID
- * 2. Try FWENS_RESUME_LABEL
- * 3. Fall back to creating a new session
- */
-/**
  * Mirrors the two-step fallback from index.ts:
- * 1. Try explicit ID (with agent_type enforcement)
+ * 1. Try explicit ID
  * 2. Try label
  * 3. Create new
  */
 function startupSession(
   db: InstanceType<typeof Database>,
   opts: {
-    agentType: string;
     label?: string;
     resumeSessionId?: string;
     resumeLabel?: string;
@@ -49,24 +42,16 @@ function startupSession(
 ): { sessionId: string; resumed: boolean } {
   const existing =
     (opts.resumeSessionId
-      ? findDisconnectedSession(db, {
-          sessionId: opts.resumeSessionId,
-          agentType: opts.agentType,
-        })
+      ? findDisconnectedSession(db, { sessionId: opts.resumeSessionId })
       : undefined) ??
-    (opts.resumeLabel
-      ? findDisconnectedSession(db, {
-          label: opts.resumeLabel,
-          agentType: opts.agentType,
-        })
-      : undefined);
+    (opts.resumeLabel ? findDisconnectedSession(db, { label: opts.resumeLabel }) : undefined);
 
   if (existing) {
     resumeSession(db, existing.id, { label: opts.label });
     return { sessionId: existing.id, resumed: true };
   }
 
-  const sessionId = createSession(db, opts.agentType, opts.label);
+  const sessionId = createSession(db, opts.label);
   return { sessionId, resumed: false };
 }
 
@@ -77,23 +62,20 @@ function startupSession(
 describe("startup: fresh start", () => {
   it("creates a new session when no resume vars are set", () => {
     const { sessionId, resumed } = startupSession(db, {
-      agentType: "claude",
       label: "claude-main",
     });
 
     expect(resumed).toBe(false);
     const session = getSession(db, sessionId)!;
     expect(session.status).toBe("active");
-    expect(session.agent_type).toBe("claude");
     expect(session.label).toBe("claude-main");
   });
 
   it("creates a new session when no disconnected sessions exist", () => {
     // Active session with the same label — should NOT resume
-    createSession(db, "claude", "claude-main");
+    createSession(db, "claude-main");
 
     const { resumed } = startupSession(db, {
-      agentType: "claude",
       label: "claude-main",
       resumeLabel: "claude-main",
     });
@@ -107,11 +89,10 @@ describe("startup: fresh start", () => {
 
 describe("startup: FWENS_SESSION_ID", () => {
   it("resumes a disconnected session by explicit ID", () => {
-    const original = createSession(db, "claude", "claude-main");
+    const original = createSession(db, "claude-main");
     updateSessionStatus(db, original, "disconnected");
 
     const { sessionId, resumed } = startupSession(db, {
-      agentType: "claude",
       label: "claude-main",
       resumeSessionId: original,
     });
@@ -122,10 +103,9 @@ describe("startup: FWENS_SESSION_ID", () => {
   });
 
   it("creates new session when explicit ID is not disconnected", () => {
-    const active = createSession(db, "claude", "claude-main"); // active
+    const active = createSession(db, "claude-main"); // active
 
     const { sessionId, resumed } = startupSession(db, {
-      agentType: "claude",
       resumeSessionId: active,
     });
 
@@ -135,7 +115,6 @@ describe("startup: FWENS_SESSION_ID", () => {
 
   it("creates new session when explicit ID does not exist", () => {
     const { resumed } = startupSession(db, {
-      agentType: "claude",
       resumeSessionId: "00000000-0000-0000-0000-000000000000",
     });
 
@@ -148,18 +127,17 @@ describe("startup: FWENS_SESSION_ID", () => {
 // ---------------------------------------------------------------------------
 
 describe("startup: FWENS_RESUME_LABEL", () => {
-  it("resumes the most recent disconnected session matching label + agent_type", () => {
-    const old = createSession(db, "claude", "claude-main");
+  it("resumes the most recent disconnected session matching the label", () => {
+    const old = createSession(db, "claude-main");
     updateSessionStatus(db, old, "disconnected");
     db.prepare(`UPDATE sessions SET last_seen_at = datetime('now', '-1 hour') WHERE id = ?`).run(
       old,
     );
 
-    const recent = createSession(db, "claude", "claude-main");
+    const recent = createSession(db, "claude-main");
     updateSessionStatus(db, recent, "disconnected");
 
     const { sessionId, resumed } = startupSession(db, {
-      agentType: "claude",
       label: "claude-main",
       resumeLabel: "claude-main",
     });
@@ -168,26 +146,11 @@ describe("startup: FWENS_RESUME_LABEL", () => {
     expect(sessionId).toBe(recent);
   });
 
-  it("does not resume a session from a different agent_type", () => {
-    const gemini = createSession(db, "gemini", "worker");
-    updateSessionStatus(db, gemini, "disconnected");
-
-    const { sessionId, resumed } = startupSession(db, {
-      agentType: "claude",
-      label: "worker",
-      resumeLabel: "worker",
-    });
-
-    expect(resumed).toBe(false);
-    expect(sessionId).not.toBe(gemini);
-  });
-
   it("updates label on resume when a new label is provided", () => {
-    const original = createSession(db, "claude", "old-label");
+    const original = createSession(db, "old-label");
     updateSessionStatus(db, original, "disconnected");
 
     const { sessionId } = startupSession(db, {
-      agentType: "claude",
       label: "new-label",
       resumeLabel: "old-label",
     });
@@ -202,38 +165,35 @@ describe("startup: FWENS_RESUME_LABEL", () => {
 // ---------------------------------------------------------------------------
 
 describe("startup: ID takes precedence over label", () => {
-  it("resumes by ID when agent_type matches", () => {
-    const labelMatch = createSession(db, "claude", "claude-main");
+  it("resumes by ID when both match disconnected sessions", () => {
+    const labelMatch = createSession(db, "claude-main");
     updateSessionStatus(db, labelMatch, "disconnected");
 
-    const idMatch = createSession(db, "claude", "claude-other");
+    const idMatch = createSession(db, "claude-other");
     updateSessionStatus(db, idMatch, "disconnected");
 
     const { sessionId, resumed } = startupSession(db, {
-      agentType: "claude",
       resumeSessionId: idMatch,
       resumeLabel: "claude-main",
     });
 
     expect(resumed).toBe(true);
-    expect(sessionId).toBe(idMatch); // ID wins over label
+    expect(sessionId).toBe(idMatch);
   });
 
-  it("falls back to label when ID targets a different agent_type", () => {
-    const labelMatch = createSession(db, "claude", "claude-main");
+  it("falls back to label when the explicit ID is not disconnected", () => {
+    const labelMatch = createSession(db, "claude-main");
     updateSessionStatus(db, labelMatch, "disconnected");
 
-    const wrongType = createSession(db, "gemini", "gemini-main");
-    updateSessionStatus(db, wrongType, "disconnected");
+    const stillActive = createSession(db, "other"); // active, can't be resumed
 
     const { sessionId, resumed } = startupSession(db, {
-      agentType: "claude",
-      resumeSessionId: wrongType, // Gemini session — won't match claude
+      resumeSessionId: stillActive,
       resumeLabel: "claude-main",
     });
 
     expect(resumed).toBe(true);
-    expect(sessionId).toBe(labelMatch); // fell back to label match
+    expect(sessionId).toBe(labelMatch);
   });
 });
 
@@ -243,25 +203,19 @@ describe("startup: ID takes precedence over label", () => {
 
 describe("startup: full lifecycle with resume", () => {
   it("agent starts -> works -> disconnects -> resumes -> continues work", () => {
-    // First session
     const { sessionId: first } = startupSession(db, {
-      agentType: "claude",
       label: "claude-main",
     });
 
-    // Do work
     const taskId = createTask(db, first, {
       short_name: "implement feature",
       description: "Build the thing",
       assigned_to: first,
     });
 
-    // Disconnect
     updateSessionStatus(db, first, "disconnected");
 
-    // Second session with resume
     const { sessionId: second, resumed } = startupSession(db, {
-      agentType: "claude",
       label: "claude-main",
       resumeLabel: "claude-main",
     });
@@ -269,7 +223,6 @@ describe("startup: full lifecycle with resume", () => {
     expect(resumed).toBe(true);
     expect(second).toBe(first);
 
-    // Task is still ours
     const tasks = listTasks(db, { assigned_to: second });
     expect(tasks).toHaveLength(1);
     expect(tasks[0].id).toBe(taskId);
@@ -277,48 +230,38 @@ describe("startup: full lifecycle with resume", () => {
 
   it("does not create duplicate sessions on resume", () => {
     const { sessionId: first } = startupSession(db, {
-      agentType: "claude",
       label: "claude-main",
     });
 
     updateSessionStatus(db, first, "disconnected");
 
     startupSession(db, {
-      agentType: "claude",
       label: "claude-main",
       resumeLabel: "claude-main",
     });
 
-    // Should still be only 1 session, not 2
     const all = listSessions(db);
     expect(all).toHaveLength(1);
     expect(all[0].id).toBe(first);
     expect(all[0].status).toBe("active");
   });
 
-  it("multi-agent scenario: each agent resumes its own session", () => {
-    // Start both agents
+  it("multi-agent scenario: each agent resumes its own session by label", () => {
     const { sessionId: claude } = startupSession(db, {
-      agentType: "claude",
       label: "claude-main",
     });
     const { sessionId: gemini } = startupSession(db, {
-      agentType: "gemini",
       label: "gemini-main",
     });
 
-    // Both disconnect
     updateSessionStatus(db, claude, "disconnected");
     updateSessionStatus(db, gemini, "disconnected");
 
-    // Both resume
     const claudeResume = startupSession(db, {
-      agentType: "claude",
       label: "claude-main",
       resumeLabel: "claude-main",
     });
     const geminiResume = startupSession(db, {
-      agentType: "gemini",
       label: "gemini-main",
       resumeLabel: "gemini-main",
     });
@@ -328,7 +271,6 @@ describe("startup: full lifecycle with resume", () => {
     expect(geminiResume.sessionId).toBe(gemini);
     expect(geminiResume.resumed).toBe(true);
 
-    // Still only 2 sessions total
     expect(listSessions(db)).toHaveLength(2);
   });
 });

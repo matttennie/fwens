@@ -6,7 +6,7 @@ export function runMessages(projectDir: string, channel?: string): void {
   try {
     let query = `
       SELECT m.id, m.channel, m.content, m.created_at,
-             s.agent_type AS author_type, s.label AS author_label
+             s.label AS author_label, s.id AS author_id
       FROM messages m
       LEFT JOIN sessions s ON m.author = s.id
     `;
@@ -24,8 +24,8 @@ export function runMessages(projectDir: string, channel?: string): void {
       channel: string;
       content: string;
       created_at: string;
-      author_type: string | null;
       author_label: string | null;
+      author_id: string | null;
     }>;
 
     if (messages.length === 0) {
@@ -36,9 +36,7 @@ export function runMessages(projectDir: string, channel?: string): void {
     const heading = channel ? `Messages (#${channel})` : "Messages";
     console.log(`=== ${heading} ===`);
     for (const m of messages) {
-      const author = m.author_type
-        ? `${m.author_type}${m.author_label ? ` (${m.author_label})` : ""}`
-        : "unknown";
+      const author = m.author_label ?? m.author_id ?? "unknown";
       console.log(`  [${m.created_at}] #${m.channel} ${author}: ${m.content}`);
     }
   } finally {

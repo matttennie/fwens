@@ -60,10 +60,9 @@ describe("initializeDb", () => {
 
 describe("session CRUD", () => {
   it("creates and retrieves a session", () => {
-    const id = createSession(db, "claude", "my-agent");
+    const id = createSession(db, "my-agent");
     const session = getSession(db, id);
     expect(session).toBeDefined();
-    expect(session!.agent_type).toBe("claude");
     expect(session!.label).toBe("my-agent");
     expect(session!.status).toBe("active");
     expect(session!.connected_at).toBeTruthy();
@@ -71,7 +70,7 @@ describe("session CRUD", () => {
   });
 
   it("creates a session without a label", () => {
-    const id = createSession(db, "gemini");
+    const id = createSession(db);
     const session = getSession(db, id);
     expect(session!.label).toBeNull();
   });
@@ -82,27 +81,25 @@ describe("session CRUD", () => {
   });
 
   it("updates session status", () => {
-    const id = createSession(db, "claude");
+    const id = createSession(db);
     updateSessionStatus(db, id, "busy");
     const session = getSession(db, id);
     expect(session!.status).toBe("busy");
   });
 
   it("updates last_seen_at", () => {
-    const id = createSession(db, "claude");
-    const before = getSession(db, id)!.last_seen_at;
+    const id = createSession(db);
     updateLastSeen(db, id);
     const after = getSession(db, id)!.last_seen_at;
-    // They may be the same due to datetime precision, but should not throw
     expect(after).toBeTruthy();
   });
 });
 
 describe("session filtering", () => {
   beforeEach(() => {
-    const s1 = createSession(db, "claude", "c1");
-    const s2 = createSession(db, "gemini", "g1");
-    const s3 = createSession(db, "claude", "c2");
+    const s1 = createSession(db, "c1");
+    createSession(db, "g1");
+    createSession(db, "c2");
     updateSessionStatus(db, s1, "busy");
   });
 
@@ -117,20 +114,9 @@ describe("session filtering", () => {
     expect(busy[0].label).toBe("c1");
   });
 
-  it("filters by agent_type", () => {
-    const claude = listSessions(db, { agent_type: "claude" });
-    expect(claude).toHaveLength(2);
-  });
-
-  it("filters by both status and agent_type", () => {
-    const result = listSessions(db, { status: "active", agent_type: "claude" });
-    expect(result).toHaveLength(1);
-    expect(result[0].label).toBe("c2");
-  });
-
   it("caps results at the requested limit", () => {
     for (let i = 0; i < 10; i++) {
-      createSession(db, "claude", `c${i + 10}`);
+      createSession(db, `c${i + 10}`);
     }
     const limited = listSessions(db, { limit: 5 });
     expect(limited).toHaveLength(5);
@@ -139,7 +125,7 @@ describe("session filtering", () => {
 
 describe("updateStatus", () => {
   it("applies status and tokens_used in a single atomic update", () => {
-    const id = createSession(db, "claude", "atomic");
+    const id = createSession(db, "atomic");
     const result = updateStatus(db, id, { status: "busy", tokens_used: 42 });
     expect(result.status).toBe("busy");
     expect(result.tokens_used).toBe(42);
@@ -150,7 +136,7 @@ describe("updateStatus", () => {
   });
 
   it("returns the session unchanged when no fields are provided", () => {
-    const id = createSession(db, "claude", "noop");
+    const id = createSession(db, "noop");
     const before = getSession(db, id)!;
     const after = updateStatus(db, id, {});
     expect(after.status).toBe(before.status);
@@ -158,7 +144,7 @@ describe("updateStatus", () => {
   });
 
   it("updates only status when tokens_used is omitted", () => {
-    const id = createSession(db, "claude", "status-only");
+    const id = createSession(db, "status-only");
     const result = updateStatus(db, id, { status: "stuck" });
     expect(result.status).toBe("stuck");
     expect(result.tokens_used).toBe(0);

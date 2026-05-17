@@ -42,7 +42,6 @@ import {
 // ---------------------------------------------------------------------------
 
 const projectRoot = resolveProjectRoot(process.env.FWENS_PROJECT);
-const agentType = process.env.FWENS_AGENT_TYPE ?? "claude";
 
 function resolveProjectRoot(envValue: string | undefined): string {
   if (!envValue) return process.cwd();
@@ -69,7 +68,6 @@ const resumeLabel = process.env.FWENS_RESUME_LABEL;
 
 const runtime = createRuntimeManager({
   projectRoot,
-  agentType,
   agentLabel,
   resumeSessionId,
   resumeLabel,
@@ -98,7 +96,7 @@ server.registerTool(
   "whoami",
   {
     title: "Who Am I",
-    description: "Returns this agent's session info (id, type, label, status).",
+    description: "Returns this agent's session info (id, label, status).",
     inputSchema: z.object({}),
   },
   async () => {
@@ -118,10 +116,9 @@ server.registerTool(
   "list_sessions",
   {
     title: "List Sessions",
-    description: "Lists all agent sessions, optionally filtered by status or agent_type.",
+    description: "Lists all agent sessions, optionally filtered by status.",
     inputSchema: z.object({
       status: z.enum(SESSION_STATUSES).optional(),
-      agent_type: z.string().optional(),
       limit: z.number().int().positive().max(MAX_LIST_LIMIT).optional(),
     }),
   },

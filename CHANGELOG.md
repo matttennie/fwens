@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Removed
+
+- **`agent_type` field and `FWENS_AGENT_TYPE` env var**: Agents are now distinguished solely by `label`. The `agent_type` column is dropped from `sessions` via in-place migration (SQLite `ALTER TABLE … DROP COLUMN`, requires 3.35+). **Breaking changes**: `list_sessions` no longer accepts an `agent_type` filter; `Session.agent_type` is gone; `createSession(db, agentType, label, pid)` is now `createSession(db, label, pid)`; `findDisconnectedSession` no longer accepts an `agentType` option; `fwens seed`'s `Assigned:` directive now matches on session label rather than CLI name.
+
 ## [0.2.0] - 2026-05-17
 
 A consolidation release. Two adversarial review passes shaped the work: an OSS-readiness cleanup (security/correctness/hygiene) and a production-readiness pass (concurrency, durability, recovery visibility). Every dependency was bumped to its current major.

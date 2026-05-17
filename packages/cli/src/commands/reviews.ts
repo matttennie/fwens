@@ -6,7 +6,7 @@ export function runReviews(projectDir: string, pending?: boolean): void {
   try {
     let query = `
       SELECT r.id, r.task_id, r.verdict, r.findings, r.created_at,
-             s.agent_type AS reviewer_type, s.label AS reviewer_label
+             s.label AS reviewer_label, s.id AS reviewer_id
       FROM reviews r
       LEFT JOIN sessions s ON r.reviewer = s.id
     `;
@@ -23,8 +23,8 @@ export function runReviews(projectDir: string, pending?: boolean): void {
       verdict: string | null;
       findings: string | null;
       created_at: string;
-      reviewer_type: string | null;
       reviewer_label: string | null;
+      reviewer_id: string | null;
     }>;
 
     if (reviews.length === 0) {
@@ -35,9 +35,7 @@ export function runReviews(projectDir: string, pending?: boolean): void {
     const heading = pending ? "Pending Reviews" : "Reviews";
     console.log(`=== ${heading} ===`);
     for (const r of reviews) {
-      const reviewer = r.reviewer_type
-        ? `${r.reviewer_type}${r.reviewer_label ? ` (${r.reviewer_label})` : ""}`
-        : "unassigned";
+      const reviewer = r.reviewer_label ?? r.reviewer_id ?? "unassigned";
       const verdict = r.verdict ?? "pending";
       console.log(`  [${verdict}] ${r.id} — task: ${r.task_id}`);
       console.log(`    Reviewer: ${reviewer}`);
