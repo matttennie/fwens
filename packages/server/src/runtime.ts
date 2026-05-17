@@ -71,7 +71,12 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
     const db = new Database(dbPath, { timeout: 5000 });
     initializeDb(db);
 
-    const existingSession =
+    // Try to resume an existing disconnected session. The resumeSession call
+    // itself is the atomic claim (conditional UPDATE on status='disconnected'),
+    // so two processes racing on the same row will not both succeed; the loser
+    // falls through and creates a fresh session.
+    let sessionId: string | undefined;
+    const candidate =
       (config.resumeSessionId
         ? findDisconnectedSession(db, {
             sessionId: config.resumeSessionId,
@@ -85,16 +90,20 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
           })
         : undefined);
 
-    const sessionId = existingSession
-      ? existingSession.id
-      : createSession(db, config.agentType, config.agentLabel, process.pid);
-
-    if (existingSession) {
-      resumeSession(db, existingSession.id, {
+    if (candidate) {
+      const resumed = resumeSession(db, candidate.id, {
         label: config.agentLabel,
         pid: process.pid,
       });
+      if (resumed) {
+        sessionId = resumed.id;
+      }
     }
+
+    if (!sessionId) {
+      sessionId = createSession(db, config.agentType, config.agentLabel, process.pid);
+    }
+    const existingSession = candidate && sessionId === candidate.id ? candidate : undefined;
 
     // Sweep stale sessions left behind by crashed processes. Logs each
     // prune event to .fwens/prune-events.jsonl so vanishing sessions are
