@@ -28,7 +28,7 @@ function setLastSeen(id: string, when: Date): void {
 
 describe("pruneStaleSessions — PID-based liveness", () => {
   it("marks sessions with dead PIDs as disconnected", () => {
-    const id = createSession(db, "claude", "claude-worker", 42);
+    const id = createSession(db, "claude-worker", 42);
     const result = pruneStaleSessions(db, { isAlive: () => false });
 
     expect(result.pruned_dead_pid).toBe(1);
@@ -40,7 +40,7 @@ describe("pruneStaleSessions — PID-based liveness", () => {
   });
 
   it("keeps sessions whose PIDs are alive AND recent", () => {
-    const id = createSession(db, "claude", "claude-worker", 42);
+    const id = createSession(db, "claude-worker", 42);
     const result = pruneStaleSessions(db, { isAlive: () => true });
 
     expect(result.pruned_dead_pid).toBe(0);
@@ -49,7 +49,7 @@ describe("pruneStaleSessions — PID-based liveness", () => {
   });
 
   it("leaves NULL-pid sessions alone when recent (legacy rows)", () => {
-    const id = createSession(db, "claude", "claude-worker");
+    const id = createSession(db, "claude-worker");
     const result = pruneStaleSessions(db, { isAlive: () => false });
 
     expect(result.pruned_dead_pid).toBe(0);
@@ -59,7 +59,7 @@ describe("pruneStaleSessions — PID-based liveness", () => {
   });
 
   it("does not re-touch already-disconnected sessions", () => {
-    const id = createSession(db, "claude", "claude-worker", 42);
+    const id = createSession(db, "claude-worker", 42);
     updateSessionStatus(db, id, "disconnected");
 
     const result = pruneStaleSessions(db, { isAlive: () => false });
@@ -72,7 +72,7 @@ describe("pruneStaleSessions — PID-based liveness", () => {
 
 describe("pruneStaleSessions — heartbeat-age fallback", () => {
   it("prunes alive-PID sessions whose last_seen_at exceeds maxIdleMs (PID-recycling defense)", () => {
-    const id = createSession(db, "claude", "zombie", 42);
+    const id = createSession(db, "zombie", 42);
     setLastSeen(id, new Date(Date.now() - 25 * 60 * 60 * 1000)); // 25h ago
 
     const result = pruneStaleSessions(db, {
@@ -89,7 +89,7 @@ describe("pruneStaleSessions — heartbeat-age fallback", () => {
   });
 
   it("prunes NULL-pid legacy rows that exceed maxIdleMs", () => {
-    const id = createSession(db, "claude", "legacy-zombie");
+    const id = createSession(db, "legacy-zombie");
     setLastSeen(id, new Date(Date.now() - 48 * 60 * 60 * 1000)); // 48h ago
 
     const result = pruneStaleSessions(db, {
@@ -103,7 +103,7 @@ describe("pruneStaleSessions — heartbeat-age fallback", () => {
   });
 
   it("does not prune recent NULL-pid rows even with default threshold", () => {
-    const id = createSession(db, "claude", "legacy-recent");
+    const id = createSession(db, "legacy-recent");
 
     const result = pruneStaleSessions(db);
 
@@ -112,7 +112,7 @@ describe("pruneStaleSessions — heartbeat-age fallback", () => {
   });
 
   it("uses DEFAULT_PRUNE_MAX_IDLE_MS when maxIdleMs not provided", () => {
-    const id = createSession(db, "claude", "default-thresh", 42);
+    const id = createSession(db, "default-thresh", 42);
     setLastSeen(id, new Date(Date.now() - DEFAULT_PRUNE_MAX_IDLE_MS - 60_000));
 
     const result = pruneStaleSessions(db, { isAlive: () => true });
@@ -123,7 +123,7 @@ describe("pruneStaleSessions — heartbeat-age fallback", () => {
 
 describe("pruneStaleSessions — disabled mode", () => {
   it("returns disabled=true and no-ops when opts.disabled is set", () => {
-    const id = createSession(db, "claude", "worker", 42);
+    const id = createSession(db, "worker", 42);
     const result = pruneStaleSessions(db, { disabled: true, isAlive: () => false });
 
     expect(result.disabled).toBe(true);
@@ -135,10 +135,10 @@ describe("pruneStaleSessions — disabled mode", () => {
 
 describe("pruneStaleSessions — combined sweep", () => {
   it("handles alive+recent, dead-pid, aged-out, and legacy-recent in one sweep", () => {
-    const aliveId = createSession(db, "claude", "alive", 1001);
-    const deadId = createSession(db, "codex", "dead", 1002);
-    const agedId = createSession(db, "gemini", "aged", 1003);
-    const legacyId = createSession(db, "opencode", "legacy"); // no pid, recent
+    const aliveId = createSession(db, "alive", 1001);
+    const deadId = createSession(db, "dead", 1002);
+    const agedId = createSession(db, "aged", 1003);
+    const legacyId = createSession(db, "legacy"); // no pid, recent
     setLastSeen(agedId, new Date(Date.now() - 48 * 60 * 60 * 1000));
 
     const result = pruneStaleSessions(db, {
@@ -159,7 +159,7 @@ describe("pruneStaleSessions — combined sweep", () => {
 
 describe("pruneStaleSessions — real-process integration", () => {
   it("treats the current process PID as alive (and recent)", () => {
-    const id = createSession(db, "claude", "self", process.pid);
+    const id = createSession(db, "self", process.pid);
     const result = pruneStaleSessions(db);
 
     expect(result.kept_alive).toBe(1);
@@ -176,7 +176,7 @@ describe("pruneStaleSessions — real-process integration", () => {
     const pid = child.pid!;
     await new Promise<void>((resolve) => child.on("exit", () => resolve()));
 
-    const id = createSession(db, "claude", "reaped-child", pid);
+    const id = createSession(db, "reaped-child", pid);
     const result = pruneStaleSessions(db);
 
     expect(result.pruned_dead_pid).toBe(1);
@@ -186,7 +186,7 @@ describe("pruneStaleSessions — real-process integration", () => {
 
 describe("pruneStaleSessions — isProcessAlive error semantics", () => {
   it("treats EPERM as alive (process exists, owned by another user)", () => {
-    const id = createSession(db, "claude", "other-user", 42);
+    const id = createSession(db, "other-user", 42);
     const killSpy = vi.spyOn(process, "kill").mockImplementation(() => {
       const e = new Error("EPERM") as NodeJS.ErrnoException;
       e.code = "EPERM";
@@ -202,7 +202,7 @@ describe("pruneStaleSessions — isProcessAlive error semantics", () => {
   });
 
   it("treats ESRCH as dead", () => {
-    const id = createSession(db, "claude", "missing", 42);
+    const id = createSession(db, "missing", 42);
     const killSpy = vi.spyOn(process, "kill").mockImplementation(() => {
       const e = new Error("ESRCH") as NodeJS.ErrnoException;
       e.code = "ESRCH";
@@ -218,7 +218,7 @@ describe("pruneStaleSessions — isProcessAlive error semantics", () => {
   });
 
   it("treats unknown error codes as alive (preserve in sandboxed envs)", () => {
-    const id = createSession(db, "claude", "sandbox", 42);
+    const id = createSession(db, "sandbox", 42);
     const killSpy = vi.spyOn(process, "kill").mockImplementation(() => {
       const e = new Error("EACCES") as NodeJS.ErrnoException;
       e.code = "EACCES";
@@ -236,12 +236,12 @@ describe("pruneStaleSessions — isProcessAlive error semantics", () => {
 
 describe("createSession with pid", () => {
   it("stores the pid on insert", () => {
-    const id = createSession(db, "claude", "test", 12345);
+    const id = createSession(db, "test", 12345);
     expect(getSession(db, id)!.pid).toBe(12345);
   });
 
   it("stores NULL when pid omitted", () => {
-    const id = createSession(db, "claude", "test");
+    const id = createSession(db, "test");
     expect(getSession(db, id)!.pid).toBeNull();
   });
 });

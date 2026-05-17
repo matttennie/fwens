@@ -28,10 +28,9 @@ export function runStatus(projectDir: string): void {
 
     // Active sessions
     const activeSessions = db
-      .prepare("SELECT id, agent_type, label, status FROM sessions WHERE status != 'disconnected'")
+      .prepare("SELECT id, label, status FROM sessions WHERE status != 'disconnected'")
       .all() as Array<{
       id: string;
-      agent_type: string;
       label: string | null;
       status: string;
     }>;
@@ -41,8 +40,8 @@ export function runStatus(projectDir: string): void {
       console.log("  No active sessions.");
     } else {
       for (const s of activeSessions) {
-        const label = s.label ? ` (${s.label})` : "";
-        console.log(`  ${s.agent_type}${label} [${s.status}] — ${s.id}`);
+        const label = s.label ?? "(unlabeled)";
+        console.log(`  ${label} [${s.status}] — ${s.id}`);
       }
     }
   } finally {

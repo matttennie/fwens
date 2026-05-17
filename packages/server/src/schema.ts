@@ -3,7 +3,6 @@ import type Database from "better-sqlite3";
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS sessions (
   id           TEXT PRIMARY KEY,
-  agent_type   TEXT NOT NULL,
   label        TEXT,
   status       TEXT NOT NULL DEFAULT 'active'
                  CHECK(status IN ('active','idle','busy','stuck','disconnected')),
@@ -81,6 +80,23 @@ function migrate(db: Database.Database): void {
       // migration failure that should not be silently ignored.
       const msg = (e as Error).message ?? "";
       if (msg.includes("duplicate column name")) {
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  // Drop columns that have been removed from the schema. Requires SQLite
+  // 3.35+ (shipped with better-sqlite3). "no such column" means the migration
+  // already ran on this DB; any other error is a real failure.
+  const removals = ["ALTER TABLE sessions DROP COLUMN agent_type"];
+
+  for (const sql of removals) {
+    try {
+      db.exec(sql);
+    } catch (e) {
+      const msg = (e as Error).message ?? "";
+      if (msg.includes("no such column")) {
         continue;
       }
       throw e;
