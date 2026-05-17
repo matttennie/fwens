@@ -191,11 +191,7 @@ export interface CleanupCompletedTasksResult {
 // Session operations
 // ---------------------------------------------------------------------------
 
-export function createSession(
-  db: Database.Database,
-  label?: string,
-  pid?: number,
-): string {
+export function createSession(db: Database.Database, label?: string, pid?: number): string {
   const id = crypto.randomUUID();
   db.prepare(`INSERT INTO sessions (id, label, pid) VALUES (?, ?, ?)`).run(
     id,

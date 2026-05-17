@@ -79,9 +79,7 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
       (config.resumeSessionId
         ? findDisconnectedSession(db, { sessionId: config.resumeSessionId })
         : undefined) ??
-      (config.resumeLabel
-        ? findDisconnectedSession(db, { label: config.resumeLabel })
-        : undefined);
+      (config.resumeLabel ? findDisconnectedSession(db, { label: config.resumeLabel }) : undefined);
 
     if (candidate) {
       const resumed = resumeSession(db, candidate.id, {

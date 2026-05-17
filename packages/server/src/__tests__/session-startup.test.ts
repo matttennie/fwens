@@ -44,9 +44,7 @@ function startupSession(
     (opts.resumeSessionId
       ? findDisconnectedSession(db, { sessionId: opts.resumeSessionId })
       : undefined) ??
-    (opts.resumeLabel
-      ? findDisconnectedSession(db, { label: opts.resumeLabel })
-      : undefined);
+    (opts.resumeLabel ? findDisconnectedSession(db, { label: opts.resumeLabel }) : undefined);
 
   if (existing) {
     resumeSession(db, existing.id, { label: opts.label });
