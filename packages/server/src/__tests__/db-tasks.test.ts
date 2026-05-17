@@ -166,6 +166,30 @@ describe("completeTask", () => {
     expect(session!.status).toBe("idle");
   });
 
+  it("filters tasks whose assignee is a disconnected session", () => {
+    // Two workers, one stays connected, the other gets pruned.
+    const aliveId = createSession(db, "claude", "alive");
+    const deadId = createSession(db, "gemini", "dead");
+
+    const stuckTask = createTask(db, sessionId, {
+      description: "stranded",
+      assigned_to: deadId,
+    });
+    claimTask(db, stuckTask, deadId);
+
+    const liveTask = createTask(db, sessionId, {
+      description: "live work",
+      assigned_to: aliveId,
+    });
+    claimTask(db, liveTask, aliveId);
+
+    // Mark the dead worker disconnected (simulating prune).
+    db.prepare(`UPDATE sessions SET status = 'disconnected' WHERE id = ?`).run(deadId);
+
+    const stranded = listTasks(db, { assigned_to_disconnected: true });
+    expect(stranded.map((t) => t.id)).toEqual([stuckTask]);
+  });
+
   it("handles completion without artifacts", () => {
     const taskId = createTask(db, sessionId, { description: "No artifacts" });
     claimTask(db, taskId, sessionId);

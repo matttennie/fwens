@@ -22,7 +22,7 @@ When the human says "find fwens" (or "check fwens", "fwens status", etc.), run t
 
 After running the startup check, also look for orphaned work:
 - `list_tasks(status: "open")` — any unassigned open tasks are fair game. Claim and execute, but never claim a task assigned to another agent.
-- `list_tasks(status: "in_progress")` — check if any in-progress tasks are assigned to disconnected sessions (stale work). If so, report them to the human.
+- `list_tasks(assigned_to_disconnected: true)` — surfaces tasks stranded by a crashed agent (the assignee's session is now `disconnected`). These can be safely reclaimed via `claim_task`, which has a built-in carve-out for disconnected assignees. Report what you find to the human before reclaiming if the task description is non-trivial.
 
 ## Executing Work
 

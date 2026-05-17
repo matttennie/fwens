@@ -29,7 +29,55 @@ cd fwens
 npm install && npm run build
 ```
 
-fwens is an MCP server. Register `node /path/to/fwens/packages/server/dist/index.js` in your CLI's MCP config the way you normally register MCP servers. Set `FWENS_AGENT_TYPE=<claude|gemini|codex|opencode>` per registration.
+fwens is an MCP server. Register `node /path/to/fwens/packages/server/dist/index.js` in each CLI's MCP config, setting `FWENS_AGENT_TYPE` to the CLI you're registering it for. Concrete examples:
+
+**Claude Code** (run from your project, or omit `--scope project` to register globally):
+
+```bash
+claude mcp add fwens \
+  --env FWENS_AGENT_TYPE=claude \
+  --scope project \
+  -- node /absolute/path/to/fwens/packages/server/dist/index.js
+```
+
+**Gemini CLI** (`~/.gemini/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "fwens": {
+      "command": "node",
+      "args": ["/absolute/path/to/fwens/packages/server/dist/index.js"],
+      "env": { "FWENS_AGENT_TYPE": "gemini" }
+    }
+  }
+}
+```
+
+**Codex CLI** (`~/.codex/config.toml`):
+
+```toml
+[mcp_servers.fwens]
+command = "node"
+args = ["/absolute/path/to/fwens/packages/server/dist/index.js"]
+env = { FWENS_AGENT_TYPE = "codex" }
+```
+
+**OpenCode** (project `opencode.json` or `~/.config/opencode/opencode.json`):
+
+```json
+{
+  "mcp": {
+    "fwens": {
+      "type": "local",
+      "command": ["node", "/absolute/path/to/fwens/packages/server/dist/index.js"],
+      "environment": { "FWENS_AGENT_TYPE": "opencode" }
+    }
+  }
+}
+```
+
+`FWENS_AGENT_TYPE` defaults to `claude` if unset, which will cause every agent to look the same in `list_sessions` — always set it explicitly per CLI.
 
 ## Use
 

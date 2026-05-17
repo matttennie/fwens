@@ -55,6 +55,11 @@ CREATE INDEX IF NOT EXISTS idx_messages_channel_time ON messages(channel, create
 
 export function initializeDb(db: Database.Database): void {
   db.pragma("journal_mode = WAL");
+  // FULL is the only setting that survives both an application crash and an
+  // OS / power-loss event under WAL. NORMAL would be faster but is unsafe on
+  // some Linux file systems for the latter. Explicit so behavior is the same
+  // regardless of the platform default.
+  db.pragma("synchronous = FULL");
   db.exec(SCHEMA);
   migrate(db);
 }
