@@ -28,7 +28,7 @@ describe("initializeDb", () => {
     expect(names).toEqual(["messages", "reviews", "sessions", "tasks"]);
   });
 
-  it("enables WAL journal mode", () => {
+  it("enables WAL journal mode and FULL synchronous", () => {
     // In-memory databases cannot use WAL, so verify with a file-backed db
     const fs = require("node:fs");
     const os = require("node:os");
@@ -37,8 +37,12 @@ describe("initializeDb", () => {
     try {
       const fileDb = new Database(tmpFile);
       initializeDb(fileDb);
-      const row = fileDb.pragma("journal_mode") as { journal_mode: string }[];
-      expect(row[0].journal_mode).toBe("wal");
+      const journal = fileDb.pragma("journal_mode") as { journal_mode: string }[];
+      expect(journal[0].journal_mode).toBe("wal");
+      // synchronous returns 2 for FULL. The numeric form is the contract;
+      // ensures crash-durability is explicit, not platform-default.
+      const sync = fileDb.pragma("synchronous") as { synchronous: number }[];
+      expect(sync[0].synchronous).toBe(2);
       fileDb.close();
     } finally {
       try {
@@ -122,6 +126,14 @@ describe("session filtering", () => {
     const result = listSessions(db, { status: "active", agent_type: "claude" });
     expect(result).toHaveLength(1);
     expect(result[0].label).toBe("c2");
+  });
+
+  it("caps results at the requested limit", () => {
+    for (let i = 0; i < 10; i++) {
+      createSession(db, "claude", `c${i + 10}`);
+    }
+    const limited = listSessions(db, { limit: 5 });
+    expect(limited).toHaveLength(5);
   });
 });
 

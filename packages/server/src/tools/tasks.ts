@@ -43,7 +43,13 @@ export function handleCreateTask(
 export function handleListTasks(
   db: Database.Database,
   sessionId: string,
-  args: { status?: string; assigned_to?: string; mine?: boolean },
+  args: {
+    status?: string;
+    assigned_to?: string;
+    mine?: boolean;
+    assigned_to_disconnected?: boolean;
+    limit?: number;
+  },
 ): Task[] {
   if (args.status) {
     validateEnum(args.status, TASK_STATUSES, "status");
@@ -56,6 +62,8 @@ export function handleListTasks(
     status: args.status,
     assigned_to: args.assigned_to,
     mine: args.mine ? sessionId : undefined,
+    assigned_to_disconnected: args.assigned_to_disconnected,
+    limit: args.limit,
   };
   return listTasks(db, filter);
 }

@@ -202,8 +202,8 @@ describe("resumeSession", () => {
     updateSessionStatus(db, id, "disconnected");
 
     const resumed = resumeSession(db, id);
-    expect(resumed.id).toBe(id);
-    expect(resumed.status).toBe("active");
+    expect(resumed!.id).toBe(id);
+    expect(resumed!.status).toBe("active");
   });
 
   it("preserves the original connected_at timestamp", () => {
@@ -212,7 +212,7 @@ describe("resumeSession", () => {
     updateSessionStatus(db, id, "disconnected");
 
     const resumed = resumeSession(db, id);
-    expect(resumed.connected_at).toBe(originalConnectedAt);
+    expect(resumed!.connected_at).toBe(originalConnectedAt);
   });
 
   it("updates last_seen_at to now", () => {
@@ -224,7 +224,7 @@ describe("resumeSession", () => {
     const before = getSession(db, id)!.last_seen_at;
     const resumed = resumeSession(db, id);
     // last_seen_at should be updated (>= before, or at least refreshed)
-    expect(resumed.last_seen_at).not.toBe(before);
+    expect(resumed!.last_seen_at).not.toBe(before);
   });
 
   it("optionally updates the label on resume", () => {
@@ -232,7 +232,7 @@ describe("resumeSession", () => {
     updateSessionStatus(db, id, "disconnected");
 
     const resumed = resumeSession(db, id, { label: "new-label" });
-    expect(resumed.label).toBe("new-label");
+    expect(resumed!.label).toBe("new-label");
   });
 
   it("keeps existing label when no new label is provided", () => {
@@ -240,18 +240,35 @@ describe("resumeSession", () => {
     updateSessionStatus(db, id, "disconnected");
 
     const resumed = resumeSession(db, id);
-    expect(resumed.label).toBe("keep-me");
+    expect(resumed!.label).toBe("keep-me");
   });
 
-  it("throws when session does not exist", () => {
-    expect(() => resumeSession(db, "00000000-0000-0000-0000-000000000000")).toThrow(/not found/i);
+  it("returns undefined when session does not exist", () => {
+    expect(resumeSession(db, "00000000-0000-0000-0000-000000000000")).toBeUndefined();
   });
 
-  it("throws when session is not disconnected", () => {
+  it("returns undefined when session is not disconnected", () => {
     const id = createSession(db, "claude", "still-active");
     // Session is 'active', not 'disconnected'
+    expect(resumeSession(db, id)).toBeUndefined();
+  });
 
-    expect(() => resumeSession(db, id)).toThrow(/not disconnected/i);
+  it("is atomic: a second resume on the same disconnected row returns undefined", () => {
+    // Simulates two processes racing on the same disconnected session row.
+    // The conditional UPDATE in resumeSession is the lock — only the first
+    // call sees changes > 0; the second sees the row already 'active' and
+    // bails out instead of throwing.
+    const id = createSession(db, "claude", "race-target");
+    updateSessionStatus(db, id, "disconnected");
+
+    const first = resumeSession(db, id, { pid: 100 });
+    const second = resumeSession(db, id, { pid: 200 });
+
+    expect(first?.id).toBe(id);
+    expect(first?.pid).toBe(100);
+    expect(second).toBeUndefined();
+    // The first claimer's pid is preserved — the second call never wrote.
+    expect(first?.pid).toBe(100);
   });
 
   it("preserves token count across resume", () => {
@@ -261,7 +278,7 @@ describe("resumeSession", () => {
     updateSessionStatus(db, id, "disconnected");
 
     const resumed = resumeSession(db, id);
-    expect(resumed.tokens_used).toBe(42000);
+    expect(resumed!.tokens_used).toBe(42000);
   });
 });
 
@@ -441,8 +458,8 @@ describe("multiple resume cycles", () => {
     for (let i = 0; i < 5; i++) {
       updateSessionStatus(db, id, "disconnected");
       const session = resumeSession(db, id);
-      expect(session.status).toBe("active");
-      expect(session.id).toBe(id);
+      expect(session!.status).toBe("active");
+      expect(session!.id).toBe(id);
     }
   });
 

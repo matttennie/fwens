@@ -3,6 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { initializeDb } from "@fwens/server/schema";
 import { createSession, createTask } from "@fwens/server/db";
+import { validatePath } from "@fwens/server/validation";
 
 interface SeedTask {
   description: string;
@@ -17,7 +18,16 @@ export function runSeed(projectDir: string, taskFile: string): void {
     process.exit(1);
   }
 
-  const filePath = path.resolve(taskFile);
+  // Confine the seed file path to the project root so a malicious project
+  // (cloned by a victim, with instructions to run `fwens seed /etc/passwd`)
+  // cannot exfiltrate arbitrary files into the task database.
+  let filePath: string;
+  try {
+    filePath = validatePath(taskFile, projectDir);
+  } catch (e) {
+    console.error((e as Error).message);
+    process.exit(1);
+  }
   if (!fs.existsSync(filePath)) {
     console.error(`Task file not found: ${filePath}`);
     process.exit(1);

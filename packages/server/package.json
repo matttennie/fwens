@@ -15,7 +15,8 @@
   "exports": {
     ".": "./dist/index.js",
     "./schema": "./dist/schema.js",
-    "./db": "./dist/db.js"
+    "./db": "./dist/db.js",
+    "./validation": "./dist/validation.js"
   },
   "bin": {
     "fwens-server": "dist/index.js"
