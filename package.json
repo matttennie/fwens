@@ -5,6 +5,15 @@
   "private": true,
   "license": "MIT",
   "author": "Matt Tennie",
+  "files": [
+    "CHANGELOG.md",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "SECURITY.md",
+    "templates"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/matttennie/fwens.git"
@@ -20,9 +29,9 @@
     "packages/*"
   ],
   "scripts": {
-    "build": "npm run build -w @fwens/server && npm run build -w @fwens/cli",
+    "build": "npm run clean && npm run build -w @fwens/server && npm run build -w @fwens/cli",
     "test": "npm run test --workspaces",
-    "clean": "rm -rf packages/*/dist",
+    "clean": "node scripts/clean-dist.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },

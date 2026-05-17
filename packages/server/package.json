@@ -5,6 +5,11 @@
   "private": true,
   "license": "MIT",
   "author": "Matt Tennie",
+  "files": [
+    "dist",
+    "!dist/**/*.map",
+    "!dist/**/__tests__/**"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/matttennie/fwens.git",

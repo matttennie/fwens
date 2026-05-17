@@ -10,7 +10,7 @@ import { runSeed } from "./commands/seed.js";
 
 const program = new Command();
 
-program.name("fwens").description("CLI for inspecting fwens project state").version("0.1.0");
+program.name("fwens").description("CLI for inspecting fwens project state").version("0.2.0");
 
 program
   .command("status")
