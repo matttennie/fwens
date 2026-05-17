@@ -70,6 +70,7 @@ export const DEFAULT_PRUNE_MAX_IDLE_MS = 24 * 60 * 60 * 1000;
 export interface SessionFilter {
   status?: string;
   agent_type?: string;
+  limit?: number;
 }
 
 export interface Task {
@@ -121,6 +122,9 @@ export interface TaskFilter {
   status?: string;
   assigned_to?: string;
   mine?: string;
+  // When true, only return tasks whose assignee is a disconnected session.
+  // Surfaces tasks stranded by a crashed agent so an orchestrator can reclaim.
+  assigned_to_disconnected?: boolean;
   limit?: number;
 }
 
@@ -252,19 +256,15 @@ export interface ResumeSessionOptions {
   pid?: number;
 }
 
+// Atomic resume: the WHERE clause filters by status='disconnected' so two
+// processes racing on the same row cannot both succeed. The loser sees
+// changes=0 and gets undefined back, signalling the caller to create a new
+// session instead of dying.
 export function resumeSession(
   db: Database.Database,
   sessionId: string,
   opts?: ResumeSessionOptions,
-): Session {
-  const session = getSession(db, sessionId);
-  if (!session) {
-    throw new Error(`Session not found: ${sessionId}`);
-  }
-  if (session.status !== "disconnected") {
-    throw new Error(`Session ${sessionId} is not disconnected (status: ${session.status})`);
-  }
-
+): Session | undefined {
   const setClauses = ["status = 'active'", "last_seen_at = datetime('now')"];
   const params: unknown[] = [];
 
@@ -280,8 +280,16 @@ export function resumeSession(
 
   params.push(sessionId);
 
-  db.prepare(`UPDATE sessions SET ${setClauses.join(", ")} WHERE id = ?`).run(...params);
+  const result = db
+    .prepare(
+      `UPDATE sessions SET ${setClauses.join(", ")}
+         WHERE id = ? AND status = 'disconnected'`,
+    )
+    .run(...params);
 
+  if (result.changes === 0) {
+    return undefined;
+  }
   return getSession(db, sessionId)!;
 }
 
@@ -303,7 +311,11 @@ export function listSessions(db: Database.Database, filter?: SessionFilter): Ses
   }
 
   const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";
-  return db.prepare(`SELECT * FROM sessions${where}`).all(...params) as Session[];
+  const limit = clampLimit(filter?.limit, DEFAULT_LIST_LIMIT);
+  params.push(limit);
+  return db
+    .prepare(`SELECT * FROM sessions${where} ORDER BY last_seen_at DESC LIMIT ?`)
+    .all(...params) as Session[];
 }
 
 export function updateSessionStatus(db: Database.Database, id: string, status: string): void {
@@ -531,6 +543,9 @@ export function listTasks(db: Database.Database, filter?: TaskFilter): Task[] {
   if (filter?.mine) {
     clauses.push("created_by = ?");
     params.push(filter.mine);
+  }
+  if (filter?.assigned_to_disconnected) {
+    clauses.push("assigned_to IN (SELECT id FROM sessions WHERE status = 'disconnected')");
   }
 
   const where = clauses.length > 0 ? ` WHERE ${clauses.join(" AND ")}` : "";

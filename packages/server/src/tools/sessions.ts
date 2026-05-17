@@ -25,10 +25,18 @@ export function handleWhoami(db: Database.Database, sessionId: string): Session 
 
 // Idempotent: no longer mutates session state. Callers needing a fresh
 // prune sweep should call handlePruneSessions explicitly.
-export function handleListSessions(db: Database.Database, filter?: SessionFilter): Session[] {
-  if (filter?.status) {
-    validateEnum(filter.status, SESSION_STATUSES, "status");
+export function handleListSessions(
+  db: Database.Database,
+  args?: { status?: string; agent_type?: string; limit?: number },
+): Session[] {
+  if (args?.status) {
+    validateEnum(args.status, SESSION_STATUSES, "status");
   }
+  const filter: SessionFilter = {
+    status: args?.status,
+    agent_type: args?.agent_type,
+    limit: args?.limit,
+  };
   return listSessions(db, filter);
 }
 

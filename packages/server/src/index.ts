@@ -122,6 +122,7 @@ server.registerTool(
     inputSchema: z.object({
       status: z.enum(SESSION_STATUSES).optional(),
       agent_type: z.string().optional(),
+      limit: z.number().int().positive().max(MAX_LIST_LIMIT).optional(),
     }),
   },
   async (args) => {
@@ -239,6 +240,9 @@ server.registerTool(
       status: z.enum(TASK_STATUSES).optional(),
       assigned_to: z.string().optional(),
       mine: z.boolean().optional(),
+      // Returns tasks assigned to a disconnected session — used to find work
+      // stranded by a crashed agent that can be reclaimed via claim_task.
+      assigned_to_disconnected: z.boolean().optional(),
       limit: z.number().int().positive().max(MAX_LIST_LIMIT).optional(),
     }),
   },
@@ -285,7 +289,9 @@ server.registerTool(
     inputSchema: z.object({
       task_id: z.string(),
       summary: z.string(),
-      artifacts: z.array(z.string()).optional(),
+      // Cap both count and per-element size: each artifact triggers fs syscalls
+      // through validatePath, so an unbounded array is a DoS vector.
+      artifacts: z.array(z.string().max(4096)).max(100).optional(),
     }),
   },
   async (args) => {
