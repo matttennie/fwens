@@ -6,7 +6,7 @@ export function runTasks(projectDir: string, filter?: string): void {
   try {
     let query = `
       SELECT t.id, t.description, t.status, t.created_at, t.updated_at,
-             s.agent_type AS assignee_type, s.label AS assignee_label
+             s.label AS assignee_label, s.id AS assignee_id
       FROM tasks t
       LEFT JOIN sessions s ON t.assigned_to = s.id
     `;
@@ -25,8 +25,8 @@ export function runTasks(projectDir: string, filter?: string): void {
       status: string;
       created_at: string;
       updated_at: string;
-      assignee_type: string | null;
       assignee_label: string | null;
+      assignee_id: string | null;
     }>;
 
     if (tasks.length === 0) {
@@ -36,9 +36,7 @@ export function runTasks(projectDir: string, filter?: string): void {
 
     console.log(`=== Tasks${filter ? ` (${filter})` : ""} ===`);
     for (const t of tasks) {
-      const assignee = t.assignee_type
-        ? `${t.assignee_type}${t.assignee_label ? ` (${t.assignee_label})` : ""}`
-        : "unassigned";
+      const assignee = t.assignee_label ?? t.assignee_id ?? "unassigned";
       console.log(`  [${t.status}] ${t.id}`);
       console.log(`    ${t.description}`);
       console.log(`    Assigned to: ${assignee}`);

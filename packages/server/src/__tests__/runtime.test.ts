@@ -18,7 +18,6 @@ describe("runtime initialization", () => {
   it("does not create project files until a fwens tool needs runtime state", () => {
     const runtime = createRuntimeManager({
       projectRoot: tmpDir,
-      agentType: "codex",
     });
 
     expect(runtime.isInitialized()).toBe(false);
@@ -32,7 +31,6 @@ describe("runtime initialization", () => {
   it("creates the database and session history on first runtime access", () => {
     const runtime = createRuntimeManager({
       projectRoot: tmpDir,
-      agentType: "codex",
       agentLabel: "codex-worker",
     });
 
@@ -44,10 +42,9 @@ describe("runtime initialization", () => {
     expect(fs.existsSync(path.join(tmpDir, ".fwens", "session-history.jsonl"))).toBe(true);
 
     const session = state.db
-      .prepare("SELECT agent_type, label, pid FROM sessions WHERE id = ?")
-      .get(state.sessionId) as { agent_type: string; label: string; pid: number };
+      .prepare("SELECT label, pid FROM sessions WHERE id = ?")
+      .get(state.sessionId) as { label: string; pid: number };
 
-    expect(session.agent_type).toBe("codex");
     expect(session.label).toBe("codex-worker");
     expect(session.pid).toBe(process.pid);
 
@@ -59,7 +56,6 @@ describe("runtime initialization", () => {
     // with a now-dead PID (simulating a crash with no clean shutdown).
     const first = createRuntimeManager({
       projectRoot: tmpDir,
-      agentType: "codex",
       agentLabel: "crashed-worker",
     });
     const firstState = first.heartbeat();
@@ -73,7 +69,6 @@ describe("runtime initialization", () => {
     // should be swept to 'disconnected' as part of the boot sequence.
     const second = createRuntimeManager({
       projectRoot: tmpDir,
-      agentType: "claude",
       agentLabel: "fresh-worker",
     });
     const secondState = second.heartbeat();
@@ -96,7 +91,6 @@ describe("runtime initialization", () => {
     let clock = 1_000_000;
     const runtime = createRuntimeManager({
       projectRoot: tmpDir,
-      agentType: "claude",
       agentLabel: "debounced",
       heartbeatDebounceMs: 30_000,
       now: () => clock,
@@ -127,7 +121,6 @@ describe("runtime initialization", () => {
     let clock = 2_000_000;
     const runtime = createRuntimeManager({
       projectRoot: tmpDir,
-      agentType: "claude",
       heartbeatDebounceMs: 30_000,
       now: () => clock,
     });
@@ -157,7 +150,6 @@ describe("runtime initialization", () => {
     let clock = 3_000_000;
     const runtime = createRuntimeManager({
       projectRoot: tmpDir,
-      agentType: "claude",
       heartbeatDebounceMs: 0,
       now: () => clock,
     });
@@ -186,7 +178,6 @@ describe("runtime initialization", () => {
       let clock = 4_000_000;
       const runtime = createRuntimeManager({
         projectRoot: tmpDir,
-        agentType: "claude",
         now: () => clock,
       });
 
@@ -217,7 +208,6 @@ describe("runtime initialization", () => {
     // First run: create a session, then shut down (which marks disconnected).
     const first = createRuntimeManager({
       projectRoot: tmpDir,
-      agentType: "codex",
       agentLabel: "resumable",
     });
     const firstState = first.heartbeat();
@@ -229,7 +219,6 @@ describe("runtime initialization", () => {
     // overwrites pid still needs to fire, which we verify by checking the row.)
     const second = createRuntimeManager({
       projectRoot: tmpDir,
-      agentType: "codex",
       agentLabel: "resumable",
       resumeLabel: "resumable",
     });

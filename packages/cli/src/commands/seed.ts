@@ -40,7 +40,7 @@ export function runSeed(projectDir: string, taskFile: string): void {
     console.error("No tasks found in file. Use this format:");
     console.error("");
     console.error("## Task: Description here");
-    console.error("Assigned: claude");
+    console.error("Assigned: claude-worker");
     console.error("Context: optional context here");
     process.exit(1);
   }
@@ -50,22 +50,22 @@ export function runSeed(projectDir: string, taskFile: string): void {
 
   const sessions = db
     .prepare(
-      `SELECT id, agent_type, label FROM sessions WHERE status != 'disconnected'
+      `SELECT id, label FROM sessions WHERE status != 'disconnected'
        ORDER BY last_seen_at DESC`,
     )
-    .all() as { id: string; agent_type: string; label: string | null }[];
+    .all() as { id: string; label: string | null }[];
 
-  const sessionByType = new Map<string, string>();
+  const sessionByLabel = new Map<string, string>();
   for (const s of sessions) {
-    if (!sessionByType.has(s.agent_type)) {
-      sessionByType.set(s.agent_type, s.id);
+    if (s.label && !sessionByLabel.has(s.label)) {
+      sessionByLabel.set(s.label, s.id);
     }
   }
 
   // Register a synthetic "seed" session as the creator so completeTask's
   // assignee/creator authorization check has a real session to reference.
   // Marked disconnected immediately; not a participant.
-  const seedSessionId = createSession(db, "seed", "fwens-seed", process.pid);
+  const seedSessionId = createSession(db, "fwens-seed", process.pid);
   db.prepare(`UPDATE sessions SET status = 'disconnected' WHERE id = ?`).run(seedSessionId);
 
   let created = 0;
@@ -73,11 +73,13 @@ export function runSeed(projectDir: string, taskFile: string): void {
     let assignedTo: string | undefined;
 
     if (task.assigned_to) {
-      const resolved = sessionByType.get(task.assigned_to);
+      const resolved = sessionByLabel.get(task.assigned_to);
       if (resolved) {
         assignedTo = resolved;
       } else {
-        console.warn(`  Warning: no active session for "${task.assigned_to}", creating unassigned`);
+        console.warn(
+          `  Warning: no active session labeled "${task.assigned_to}", creating unassigned`,
+        );
       }
     }
 

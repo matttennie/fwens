@@ -13,7 +13,6 @@ import {
 
 export interface RuntimeConfig {
   projectRoot: string;
-  agentType: string;
   agentLabel?: string;
   resumeSessionId?: string;
   resumeLabel?: string;
@@ -78,17 +77,9 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
     let sessionId: string | undefined;
     const candidate =
       (config.resumeSessionId
-        ? findDisconnectedSession(db, {
-            sessionId: config.resumeSessionId,
-            agentType: config.agentType,
-          })
+        ? findDisconnectedSession(db, { sessionId: config.resumeSessionId })
         : undefined) ??
-      (config.resumeLabel
-        ? findDisconnectedSession(db, {
-            label: config.resumeLabel,
-            agentType: config.agentType,
-          })
-        : undefined);
+      (config.resumeLabel ? findDisconnectedSession(db, { label: config.resumeLabel }) : undefined);
 
     if (candidate) {
       const resumed = resumeSession(db, candidate.id, {
@@ -101,7 +92,7 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
     }
 
     if (!sessionId) {
-      sessionId = createSession(db, config.agentType, config.agentLabel, process.pid);
+      sessionId = createSession(db, config.agentLabel, process.pid);
     }
     const existingSession = candidate && sessionId === candidate.id ? candidate : undefined;
 
@@ -126,7 +117,6 @@ export function createRuntimeManager(config: RuntimeConfig): RuntimeManager {
       const historyEntry =
         JSON.stringify({
           session_id: sessionId,
-          agent_type: config.agentType,
           label: config.agentLabel ?? null,
           resumed: !!existingSession,
           previous_connected_at: existingSession?.connected_at ?? null,
