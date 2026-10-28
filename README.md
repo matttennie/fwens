@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/matttennie/fwens/actions/workflows/ci.yml/badge.svg)](https://github.com/matttennie/fwens/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Node 22+](https://img.shields.io/badge/Node-22%2B-339933.svg)](.nvmrc)
+[![Node 22.14+](https://img.shields.io/badge/Node-22.14%2B-339933.svg)](.nvmrc)
 
 Multi-agent coordination MCP server for CLI coding tools.
 

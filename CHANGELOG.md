@@ -6,9 +6,19 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Changed
+
+- **Dependency majors**: better-sqlite3 11 → 13, `@modelcontextprotocol/sdk` 1.29 → 1.32, zod 4.4 → 4.6, commander 14 → 15, TypeScript 6 → 7, vitest 4 → 5, `@types/node` 25 → 26, `@types/better-sqlite3` 7 → 9.
+- **Node floor raised to 22.14.0**: better-sqlite3 13's prebuilt binary requires N-API 10, which Node 22 gained in 22.14.0; on 22.12/22.13 opening a database segfaults. `engines.node` is now `>=22.14.0` in all `package.json` files.
+- **CI**: `actions/checkout` and `actions/setup-node` bumped to v7; the test matrix now covers Node 22.x, 24.x, and 26.x.
+
 ### Removed
 
 - **`agent_type` field and `FWENS_AGENT_TYPE` env var**: Agents are now distinguished solely by `label`. The `agent_type` column is dropped from `sessions` via in-place migration (SQLite `ALTER TABLE … DROP COLUMN`, requires 3.35+). **Breaking changes**: `list_sessions` no longer accepts an `agent_type` filter; `Session.agent_type` is gone; `createSession(db, agentType, label, pid)` is now `createSession(db, label, pid)`; `findDisconnectedSession` no longer accepts an `agentType` option; `fwens seed`'s `Assigned:` directive now matches on session label rather than CLI name.
+
+### Security
+
+- **`npm audit` clean (15 → 0 vulnerabilities)**: Clears 1 critical, 10 high, and 4 moderate advisories, including the critical `proxy-addr` advisory pulled in via MCP SDK transitives and the high-severity zod advisory GHSA-mrhx-c7xc-m3w5.
 
 ## [0.2.0] - 2026-05-17
 
