@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+### Added
+
+- **`scripts/live-test.sh`**: Live relay smoke test across real clients — Claude Code, Codex, and Antigravity (`agy`), each in its own tmux window, pass a run id through one shared fwens board.
+
 ### Changed
 
 - **Dependency majors**: better-sqlite3 11 → 13, `@modelcontextprotocol/sdk` 1.29 → 1.32, zod 4.4 → 4.6, commander 14 → 15, TypeScript 6 → 7, vitest 4 → 5, `@types/node` 25 → 26, `@types/better-sqlite3` 7 → 9.
