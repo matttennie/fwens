@@ -88,7 +88,7 @@ function heartbeat() {
 // MCP Server
 // ---------------------------------------------------------------------------
 
-const server = new McpServer({ name: "fwens", version: "0.2.0" });
+const server = new McpServer({ name: "fwens", version: "0.3.0" });
 
 // --- whoami ----------------------------------------------------------------
 

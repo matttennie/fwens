@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-29
+
+Sessions are identified by label alone, every dependency is on its current major, and Antigravity CLI replaces Gemini CLI. This release has breaking changes; read **Upgrading from 0.2.x** first.
+
+### Upgrading from 0.2.x
+
+- **Rebuild and restart**: pull, run `npm ci && npm run build`, then restart every agent session. The first fwens server to start in a project drops `agent_type` from that project's `.fwens/fwens.db`; sessions, tasks, reviews, and messages are kept.
+- **No downgrade**: once a database is migrated, a 0.2.x server can no longer register sessions in it.
+- **`FWENS_AGENT_TYPE`**: remove it from MCP configs; it is ignored.
+- **`fwens seed`**: set `Assigned:` to a session label (for example `claude-worker`) instead of a CLI name.
+- **Node.js 22.14 or later** is required.
+
 ### Added
 
 - **`scripts/live-test.sh`**: Live relay smoke test across real clients — Claude Code, Codex, and Antigravity (`agy`), each in its own tmux window, pass a run id through one shared fwens board.
@@ -19,7 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Removed
 
-- **`agent_type` field and `FWENS_AGENT_TYPE` env var**: Agents are now distinguished solely by `label`. The `agent_type` column is dropped from `sessions` via in-place migration (SQLite `ALTER TABLE … DROP COLUMN`, requires 3.35+). **Breaking changes**: `list_sessions` no longer accepts an `agent_type` filter; `Session.agent_type` is gone; `createSession(db, agentType, label, pid)` is now `createSession(db, label, pid)`; `findDisconnectedSession` no longer accepts an `agentType` option; `fwens seed`'s `Assigned:` directive now matches on session label rather than CLI name.
+- **`agent_type` field and `FWENS_AGENT_TYPE` env var**: Agents are now distinguished solely by `label`. The `agent_type` column is dropped from `sessions` via in-place migration (SQLite `ALTER TABLE … DROP COLUMN`; needs SQLite 3.35+, which better-sqlite3 bundles). **Breaking changes**: `list_sessions` no longer accepts an `agent_type` filter; `Session.agent_type` is gone; `createSession(db, agentType, label, pid)` is now `createSession(db, label, pid)`; `findDisconnectedSession` no longer accepts an `agentType` option; `fwens seed`'s `Assigned:` directive now matches on session label rather than CLI name.
 - **`.github/dependabot.yml`**: Dropped Dependabot version-update PRs; dependencies are updated directly on `main`. Dependabot security-update PRs are also disabled in repo settings; security alerts and the CI `npm audit` gate remain.
 - **Gemini CLI support**: Replaced by Antigravity CLI. The Gemini CLI setup example and `GEMINI.md` are removed; Antigravity reads `AGENTS.md`.
 - **`OPENCODE.md`**: OpenCode reads `AGENTS.md` and never loaded this file.

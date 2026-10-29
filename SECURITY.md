@@ -17,8 +17,8 @@ fwens is a **local-only** coordination server. It does not open network ports, m
 
 | Version | Supported |
 | ------- | --------- |
-| 0.2.x   | Yes       |
-| < 0.2.0 | No        |
+| 0.3.x   | Yes       |
+| < 0.3.0 | No        |
 
 ## Reporting a Vulnerability
 
