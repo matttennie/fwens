@@ -24,6 +24,8 @@ fwens lets multiple CLI coding agents collaborate on the same codebase through a
 
 ## Install
 
+Requires Node.js 22.14 or later.
+
 ```bash
 git clone https://github.com/matttennie/fwens.git
 cd fwens

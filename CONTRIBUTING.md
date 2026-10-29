@@ -2,6 +2,8 @@
 
 ## Setup
 
+Requires Node.js 22.14 or later (`.nvmrc` pins the major version).
+
 ```bash
 git clone https://github.com/matttennie/fwens.git
 cd fwens
@@ -13,13 +15,16 @@ npm run build
 
 ```bash
 npm test
+npm run format:check
 ```
+
+CI runs both on Node 22, 24, and 26, plus `npm audit --audit-level=high`. For an end-to-end check with real clients, see [Live test](README.md#live-test).
 
 ## Submitting changes
 
 1. Create a branch from `main`.
 2. Make your changes and add tests where applicable.
-3. Run `npm test` and confirm everything passes.
+3. Run `npm test` and `npm run format:check` and confirm everything passes.
 4. Open a pull request against `main` with a clear description of what changed and why.
 
 ## Code style

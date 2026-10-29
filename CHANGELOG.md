@@ -22,9 +22,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 - **`agent_type` field and `FWENS_AGENT_TYPE` env var**: Agents are now distinguished solely by `label`. The `agent_type` column is dropped from `sessions` via in-place migration (SQLite `ALTER TABLE … DROP COLUMN`, requires 3.35+). **Breaking changes**: `list_sessions` no longer accepts an `agent_type` filter; `Session.agent_type` is gone; `createSession(db, agentType, label, pid)` is now `createSession(db, label, pid)`; `findDisconnectedSession` no longer accepts an `agentType` option; `fwens seed`'s `Assigned:` directive now matches on session label rather than CLI name.
 - **`.github/dependabot.yml`**: Dropped Dependabot version-update PRs; dependencies are updated directly on `main`. Dependabot security-update PRs are also disabled in repo settings; security alerts and the CI `npm audit` gate remain.
 
+### Fixed
+
+- **Server failed to start on Node 26**: better-sqlite3 11 could not compile against Node 26, so `npm install` failed and every CLI reported the fwens server as disconnected. better-sqlite3 13 ships N-API prebuilds that load on Node 22.14+, 24, and 26 without compiling.
+
 ### Security
 
 - **`npm audit` clean (15 → 0 vulnerabilities)**: Clears 1 critical, 10 high, and 4 moderate advisories, including the critical `proxy-addr` advisory pulled in via MCP SDK transitives and the high-severity zod advisory GHSA-mrhx-c7xc-m3w5.
+- **Secret scanning**: GitHub secret scanning and push protection are enabled for the repository. A full-history scan found no committed credentials.
 
 ## [0.2.0] - 2026-05-17
 
