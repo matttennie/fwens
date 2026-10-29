@@ -55,10 +55,12 @@ export function runSeed(projectDir: string, taskFile: string): void {
     )
     .all() as { id: string; label: string | null }[];
 
+  // Keyed by lowercased label: parseTaskFile lowercases `Assigned:` values.
   const sessionByLabel = new Map<string, string>();
   for (const s of sessions) {
-    if (s.label && !sessionByLabel.has(s.label)) {
-      sessionByLabel.set(s.label, s.id);
+    const key = s.label?.toLowerCase();
+    if (key && !sessionByLabel.has(key)) {
+      sessionByLabel.set(key, s.id);
     }
   }
 
