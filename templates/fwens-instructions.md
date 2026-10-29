@@ -7,7 +7,7 @@ This project uses fwens for multi-agent coordination. fwens is active whenever t
 At the start of every new agent session, run this immediately — do not wait for the human:
 
 1. `whoami` — note your session ID. (The session row is already in the DB — the MCP server registered it on boot.)
-2. `set_label` — use a short label based on your CLI and role, such as `codex-worker`, `claude-worker`, `gemini-worker`, or `opencode-worker`.
+2. `set_label` — use a short label based on your CLI and role, such as `codex-worker`, `claude-worker`, `agy-worker`, or `opencode-worker`.
 3. `list_tasks(assigned_to: <your session ID>, status: "open")` — check for assigned work.
 4. `list_reviews(pending: true)` — check for pending reviews.
 5. **If tasks are assigned to you** — `claim_task` and execute immediately. Pick the highest-priority task from the task description or general-channel messages; if priority is unclear, pick the oldest assigned open task. See "Executing Work" below.

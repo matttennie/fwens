@@ -9,7 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Added
 
 - **`scripts/live-test.sh`**: Live relay smoke test across real clients — Claude Code, Codex, and Antigravity (`agy`), each in its own tmux window, pass a run id through one shared fwens board.
-- **Antigravity CLI docs**: README covers registering fwens with `agy mcp add` and pre-approving fwens tools server-wide in Claude Code, Codex, and Antigravity.
+- **Antigravity CLI support**: README covers registering fwens with `agy mcp add` and pre-approving fwens tools server-wide in Claude Code, Codex, Antigravity, and OpenCode.
 
 ### Changed
 
@@ -21,6 +21,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 - **`agent_type` field and `FWENS_AGENT_TYPE` env var**: Agents are now distinguished solely by `label`. The `agent_type` column is dropped from `sessions` via in-place migration (SQLite `ALTER TABLE … DROP COLUMN`, requires 3.35+). **Breaking changes**: `list_sessions` no longer accepts an `agent_type` filter; `Session.agent_type` is gone; `createSession(db, agentType, label, pid)` is now `createSession(db, label, pid)`; `findDisconnectedSession` no longer accepts an `agentType` option; `fwens seed`'s `Assigned:` directive now matches on session label rather than CLI name.
 - **`.github/dependabot.yml`**: Dropped Dependabot version-update PRs; dependencies are updated directly on `main`. Dependabot security-update PRs are also disabled in repo settings; security alerts and the CI `npm audit` gate remain.
+- **Gemini CLI support**: Replaced by Antigravity CLI. The Gemini CLI setup example and `GEMINI.md` are removed; Antigravity reads `AGENTS.md`.
+- **`OPENCODE.md`**: OpenCode reads `AGENTS.md` and never loaded this file.
 
 ### Fixed
 

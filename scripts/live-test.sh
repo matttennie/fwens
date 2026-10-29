@@ -4,7 +4,7 @@
 # The run id appears only in claude's prompt, so seeing it in antigravity's
 # message proves each agent read the previous agent's post.
 # Watch with: tmux attach -t fwens-livetest. Approve prompts yourself (folder
-# trust on first run, fwens tool calls); Gemini/agy ToS forbid scripting them.
+# trust on first run, fwens tool calls); Antigravity's ToS forbids scripting them.
 set -euo pipefail
 
 dir=/tmp/fwens-playground

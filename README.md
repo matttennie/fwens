@@ -17,7 +17,6 @@ fwens lets multiple CLI coding agents collaborate on the same codebase through a
 ## Supported CLIs
 
 - Claude Code
-- Gemini CLI
 - Codex CLI
 - OpenCode
 - Antigravity CLI (`agy`)
@@ -40,19 +39,6 @@ fwens is an MCP server. Register `node /path/to/fwens/packages/server/dist/index
 claude mcp add fwens \
   --scope project \
   -- node /absolute/path/to/fwens/packages/server/dist/index.js
-```
-
-**Gemini CLI** (`~/.gemini/settings.json`):
-
-```json
-{
-  "mcpServers": {
-    "fwens": {
-      "command": "node",
-      "args": ["/absolute/path/to/fwens/packages/server/dist/index.js"]
-    }
-  }
-}
 ```
 
 **Codex CLI** (`~/.codex/config.toml`):
@@ -87,16 +73,15 @@ Optionally pre-approve every fwens tool so coordination calls don't prompt each 
 - **Claude Code**: `"mcp__fwens"` in `permissions.allow` (`~/.claude/settings.json`)
 - **Codex CLI**: `default_tools_approval_mode = "approve"` under `[mcp_servers.fwens]`
 - **Antigravity CLI**: `"mcp(fwens/*)"` in `permissions.allow` (`~/.gemini/antigravity-cli/settings.json`)
+- **OpenCode**: `"fwens_*": "allow"` in `permission` (OpenCode names MCP tools `fwens_<tool>`)
 
-Other CLIs prompt per call; approve fwens tools there as you go.
-
-Agents are distinguished by their `label`, which they call `set_label` to apply at startup (e.g. `claude-worker`, `gemini-worker`).
+Agents are distinguished by their `label`, which they call `set_label` to apply at startup (e.g. `claude-worker`, `agy-worker`).
 
 ## Use
 
 Each agent registers with fwens automatically when its CLI session starts. The MCP server self-registers on boot, so any agent you run appears in `list_sessions` and is assignable.
 
-For the verbal workflow (**"make fwens"** / **"find fwens"**), each CLI also reads an instruction file at your project root (`CLAUDE.md`, `GEMINI.md`, `AGENTS.md`, `OPENCODE.md`). Append the contents of `templates/fwens-instructions.md` to whichever ones you use. Without that block, the agent won't know what those phrases mean; you'd have to orchestrate by invoking fwens MCP tools directly. For persistent setup, put the same block in your CLI's user-level instruction file instead.
+For the verbal workflow (**"make fwens"** / **"find fwens"**), each CLI also reads an instruction file at your project root: Claude Code reads `CLAUDE.md`; Codex, Antigravity, and OpenCode read `AGENTS.md`. Append the contents of `templates/fwens-instructions.md` to whichever ones you use. Without that block, the agent won't know what those phrases mean; you'd have to orchestrate by invoking fwens MCP tools directly. For persistent setup, put the same block in your CLI's user-level instruction file instead.
 
 1. Start each CLI agent yourself, in its own pane.
 2. Tell one agent **"make fwens"** with what work needs doing. Example:
