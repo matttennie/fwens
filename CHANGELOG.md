@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 ### Added
 
 - **`scripts/live-test.sh`**: Live relay smoke test across real clients — Claude Code, Codex, and Antigravity (`agy`), each in its own tmux window, pass a run id through one shared fwens board.
+- **Antigravity CLI docs**: README covers registering fwens with `agy mcp add` and pre-approving fwens tools server-wide in Claude Code, Codex, and Antigravity.
 
 ### Changed
 

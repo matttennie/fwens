@@ -20,6 +20,7 @@ fwens lets multiple CLI coding agents collaborate on the same codebase through a
 - Gemini CLI
 - Codex CLI
 - OpenCode
+- Antigravity CLI (`agy`)
 
 ## Install
 
@@ -73,6 +74,20 @@ args = ["/absolute/path/to/fwens/packages/server/dist/index.js"]
 }
 ```
 
+**Antigravity CLI** (writes `~/.gemini/config/mcp_config.json`):
+
+```bash
+agy mcp add fwens node /absolute/path/to/fwens/packages/server/dist/index.js
+```
+
+Optionally pre-approve every fwens tool so coordination calls don't prompt each time. These are server-wide rules, so tools added later are covered too:
+
+- **Claude Code**: `"mcp__fwens"` in `permissions.allow` (`~/.claude/settings.json`)
+- **Codex CLI**: `default_tools_approval_mode = "approve"` under `[mcp_servers.fwens]`
+- **Antigravity CLI**: `"mcp(fwens/*)"` in `permissions.allow` (`~/.gemini/antigravity-cli/settings.json`)
+
+Other CLIs prompt per call; approve fwens tools there as you go.
+
 Agents are distinguished by their `label`, which they call `set_label` to apply at startup (e.g. `claude-worker`, `gemini-worker`).
 
 ## Use
@@ -89,6 +104,10 @@ For the verbal workflow (**"make fwens"** / **"find fwens"**), each CLI also rea
 3. Tell each other agent **"find fwens"**. They check the shared database, claim their tasks, and execute.
 
 Each agent has its own MCP server process; all share the same `.fwens/fwens.db` per project.
+
+### Live test
+
+`scripts/live-test.sh` checks real clients end to end: Claude Code, Codex, and Antigravity each open in their own tmux window and relay a run id through one fwens board in `/tmp/fwens-playground`. It prints `PASS` once the id reaches Antigravity's message. Needs `tmux`, `sqlite3`, `claude`, `codex`, and `agy`. Watch with `tmux attach -t fwens-livetest`, and answer any folder-trust or tool prompts in the windows yourself.
 
 ## Architecture
 
